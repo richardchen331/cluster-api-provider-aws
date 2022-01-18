@@ -241,6 +241,12 @@ func (s *NodegroupService) createNodegroup() (*eks.Nodegroup, error) {
 		}
 		input.CapacityType = aws.String(capacityType)
 	}
+	if managedPool.AWSLaunchTemplate != nil {
+		input.LaunchTemplate = &eks.LaunchTemplateSpecification{
+			Id: s.scope.ManagedMachinePool.Status.LaunchTemplateID,
+			Version: s.scope.ManagedMachinePool.Status.LaunchTemplateVersion,
+		}
+	}
 
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "created invalid CreateNodegroupInput")

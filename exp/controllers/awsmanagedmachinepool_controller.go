@@ -379,6 +379,16 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 		return machinePoolScope.PatchObject()
 	}
 
+	if machinePoolScope.ManagedMachinePool.Status.LaunchTemplateVersion == nil {
+		launchTemplateVersion, err := ec2svc.GetLaunchTemplateLatestVersion(machinePoolScope.Name())
+		if err != nil {
+			conditions.MarkUnknown(machinePoolScope.ManagedMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
+			return err
+		}
+		machinePoolScope.SetLaunchTemplateVersionStatus(launchTemplateVersion)
+		return machinePoolScope.PatchObject()
+	}
+
 	annotation, err := r.machinePoolAnnotationJSON(machinePoolScope.ManagedMachinePool, TagsLastAppliedAnnotation)
 	if err != nil {
 		return err
