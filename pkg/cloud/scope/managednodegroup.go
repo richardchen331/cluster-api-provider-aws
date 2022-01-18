@@ -97,7 +97,7 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		AWSLaunchTemplate: params.ManagedMachinePool.Spec.AWSLaunchTemplate,
 		MachinePool:    params.MachinePool,
 		InfraCluster:   params.InfraCluster,
-		name: params.ManagedMachinePool.Name,
+		name: fmt.Sprintf("%s-%s", params.ControlPlane.Name, params.ManagedMachinePool.Name),
 		additionalTags: params.ManagedMachinePool.Spec.AdditionalTags,
 	})
 
