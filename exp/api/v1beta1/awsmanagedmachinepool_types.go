@@ -150,7 +150,7 @@ type AWSManagedMachinePoolSpec struct {
 	UpdateConfig *UpdateConfig `json:"updateConfig,omitempty"`
 
 	// +optional
-	AWSLaunchTemplate *AWSLaunchTemplate `json:"awsLaunchTemplate"`
+	AWSLaunchTemplate *AWSLaunchTemplate `json:"awsLaunchTemplate,omitempty"`
 }
 
 // ManagedMachinePoolScaling specifies scaling options.

@@ -206,7 +206,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileNormal(
 	}
 
 	ekssvc := eks.NewNodegroupService(machinePoolScope)
-	
+
 	if machinePoolScope.ManagedMachinePool.Spec.AWSLaunchTemplate != nil {
 		if err := r.reconcileLaunchTemplate(machinePoolScope, ec2Scope); err != nil {
 			r.Recorder.Eventf(machinePoolScope.ManagedMachinePool, corev1.EventTypeWarning, "FailedLaunchTemplateReconcile", "Failed to reconcile launch template: %v", err)
@@ -342,7 +342,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 	ec2svc := r.getEC2Service(ec2Scope)
 
 	machinePoolScope.Info("checking for existing launch template")
-	launchTemplate, launchTemplateUserDataHash, err := ec2svc.GetLaunchTemplate(machinePoolScope.Name())
+	launchTemplate, launchTemplateUserDataHash, err := ec2svc.GetLaunchTemplate(machinePoolScope.LaunchTemplateScope.Name())
 	if err != nil {
 		conditions.MarkUnknown(machinePoolScope.ManagedMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
 		return err

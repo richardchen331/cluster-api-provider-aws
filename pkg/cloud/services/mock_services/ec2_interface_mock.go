@@ -83,17 +83,17 @@ func (mr *MockEC2InterfaceMockRecorder) CreateLaunchTemplate(arg0, arg1, arg2 in
 }
 
 // CreateLaunchTemplateVersion mocks base method.
-func (m *MockEC2MachineInterface) CreateLaunchTemplateVersion(arg0 *scope.LaunchTemplateScope, arg1 *string, arg2 []byte) error {
+func (m *MockEC2MachineInterface) CreateLaunchTemplateVersion(arg0 *string, arg1 *scope.LaunchTemplateScope, arg2 *string, arg3 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateLaunchTemplateVersion", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateLaunchTemplateVersion", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateLaunchTemplateVersion indicates an expected call of CreateLaunchTemplateVersion.
-func (mr *MockEC2InterfaceMockRecorder) CreateLaunchTemplateVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockEC2MachineInterfaceMockRecorder) CreateLaunchTemplateVersion(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLaunchTemplateVersion", reflect.TypeOf((*MockEC2Interface)(nil).CreateLaunchTemplateVersion), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLaunchTemplateVersion", reflect.TypeOf((*MockEC2MachineInterface)(nil).CreateLaunchTemplateVersion), arg0, arg1, arg2, arg3)
 }
 
 // DeleteBastion mocks base method.
