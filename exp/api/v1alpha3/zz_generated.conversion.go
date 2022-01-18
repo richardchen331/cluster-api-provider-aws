@@ -1188,3 +1188,7 @@ func autoConvert_v1beta1_RefreshPreferences_To_v1alpha3_RefreshPreferences(in *v
 func Convert_v1beta1_RefreshPreferences_To_v1alpha3_RefreshPreferences(in *v1beta1.RefreshPreferences, out *RefreshPreferences, s conversion.Scope) error {
 	return autoConvert_v1beta1_RefreshPreferences_To_v1alpha3_RefreshPreferences(in, out, s)
 }
+
+func Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha3_AWSManagedMachinePoolStatus(in *v1beta1.AWSManagedMachinePoolStatus, out *AWSManagedMachinePoolStatus, s conversion.Scope) error {
+	return autoConvert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha3_AWSManagedMachinePoolStatus(in, out, s)
+}
