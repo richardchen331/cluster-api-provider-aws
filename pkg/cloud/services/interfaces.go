@@ -64,7 +64,7 @@ type EC2Interface interface {
 	GetLaunchTemplateID(id string) (string, error)
 	GetLaunchTemplateLatestVersion(id string) (string, error)
 	CreateLaunchTemplate(scope *scope.LaunchTemplateScope, imageID *string, userData []byte) (string, error)
-	CreateLaunchTemplateVersion(scope *scope.LaunchTemplateScope, imageID *string, userData []byte) error
+	CreateLaunchTemplateVersion(id *string, scope *scope.LaunchTemplateScope, imageID *string, userData []byte) error
 	PruneLaunchTemplateVersions(id string) error
 	DeleteLaunchTemplate(id string) error
 	LaunchTemplateNeedsUpdate(scope *scope.LaunchTemplateScope, incoming *expinfrav1.AWSLaunchTemplate, existing *expinfrav1.AWSLaunchTemplate) (bool, error)

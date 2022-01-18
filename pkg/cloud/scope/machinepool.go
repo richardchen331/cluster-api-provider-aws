@@ -108,7 +108,6 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		InfraCluster:   params.InfraCluster,
 		name: params.AWSMachinePool.Name,
 		additionalTags: params.AWSMachinePool.Spec.AdditionalTags,
-		launchTemplateID: params.AWSMachinePool.Status.LaunchTemplateID,
 	})
 
 	return &MachinePoolScope{

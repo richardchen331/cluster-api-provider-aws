@@ -34,7 +34,6 @@ type LaunchTemplateScope struct {
 	InfraCluster   EC2Scope
 	name string
 	additionalTags infrav1.Tags
-	launchTemplateID string
 }
 
 // LaunchTemplateScopeParams defines a scope defined around a launch template.
@@ -46,7 +45,6 @@ type LaunchTemplateScopeParams struct {
 	InfraCluster   EC2Scope
 	name string
 	additionalTags infrav1.Tags
-	launchTemplateID string
 }
 
 // NewLaunchTemplateScope creates a new LaunchTemplateScope from the supplied parameters.
@@ -73,7 +71,6 @@ func NewLaunchTemplateScope(params LaunchTemplateScopeParams) (*LaunchTemplateSc
 		InfraCluster:   params.InfraCluster,
 		name: params.name,
 		additionalTags: params.additionalTags,
-		launchTemplateID: params.launchTemplateID,
 	}, nil
 }
 
@@ -94,8 +91,4 @@ func (m *LaunchTemplateScope) AdditionalTags() infrav1.Tags {
 	tags.Merge(m.additionalTags)
 
 	return tags
-}
-
-func (m *LaunchTemplateScope) LaunchTemplateId() string {
-	return m.launchTemplateID
 }

@@ -463,7 +463,7 @@ func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *sco
 		if err := ec2svc.PruneLaunchTemplateVersions(machinePoolScope.AWSMachinePool.Status.LaunchTemplateID); err != nil {
 			return err
 		}
-		if err := ec2svc.CreateLaunchTemplateVersion(&machinePoolScope.LaunchTemplateScope, imageID, bootstrapData); err != nil {
+		if err := ec2svc.CreateLaunchTemplateVersion(&machinePoolScope.AWSMachinePool.Status.LaunchTemplateID, &machinePoolScope.LaunchTemplateScope, imageID, bootstrapData); err != nil {
 			return err
 		}
 	}

@@ -422,13 +422,13 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 		machinePoolScope.Info("creating new version for launch template", "existing", launchTemplate, "incoming", machinePoolScope.LaunchTemplateScope.AWSLaunchTemplate)
 		// There is a limit to the number of Launch Template Versions.
 		// We ensure that the number of versions does not grow without bound by following a simple rule: Before we create a new version, we delete one old version, if there is at least one old version that is not in use.
-		if err := ec2svc.PruneLaunchTemplateVersions(machinePoolScope.LaunchTemplateScope.LaunchTemplateId()); err != nil {
+		if err := ec2svc.PruneLaunchTemplateVersions(*machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID); err != nil {
 			return err
 		}
-		if err := ec2svc.CreateLaunchTemplateVersion(&machinePoolScope.LaunchTemplateScope, imageID, bootstrapData); err != nil {
+		if err := ec2svc.CreateLaunchTemplateVersion(machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID, &machinePoolScope.LaunchTemplateScope, imageID, bootstrapData); err != nil {
 			return err
 		}
-		version, err := ec2svc.GetLaunchTemplateLatestVersion(machinePoolScope.LaunchTemplateScope.LaunchTemplateId())
+		version, err := ec2svc.GetLaunchTemplateLatestVersion(*machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID)
 		if err != nil {
 			return err
 		}

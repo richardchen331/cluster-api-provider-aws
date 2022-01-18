@@ -99,7 +99,6 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		InfraCluster:   params.InfraCluster,
 		name: params.ManagedMachinePool.Name,
 		additionalTags: params.ManagedMachinePool.Spec.AdditionalTags,
-		launchTemplateID: *params.ManagedMachinePool.Status.LaunchTemplateID,
 	})
 
 	return &ManagedMachinePoolScope{

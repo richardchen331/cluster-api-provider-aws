@@ -137,7 +137,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.LaunchTemplateScope, imageID
 }
 
 // CreateLaunchTemplateVersion will create a launch template.
-func (s *Service) CreateLaunchTemplateVersion(scope *scope.LaunchTemplateScope, imageID *string, userData []byte) error {
+func (s *Service) CreateLaunchTemplateVersion(id *string, scope *scope.LaunchTemplateScope, imageID *string, userData []byte) error {
 	s.scope.V(2).Info("creating new launch template version", "machine-pool", scope.Name())
 
 	launchTemplateData, err := s.createLaunchTemplateData(scope, imageID, userData)
@@ -147,7 +147,7 @@ func (s *Service) CreateLaunchTemplateVersion(scope *scope.LaunchTemplateScope, 
 
 	input := &ec2.CreateLaunchTemplateVersionInput{
 		LaunchTemplateData: launchTemplateData,
-		LaunchTemplateId:   aws.String(scope.LaunchTemplateId()),
+		LaunchTemplateId: id,
 	}
 
 	_, err = s.EC2Client.CreateLaunchTemplateVersion(input)
