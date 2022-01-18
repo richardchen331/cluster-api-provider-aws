@@ -206,8 +206,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileNormal(
 	}
 
 	ekssvc := eks.NewNodegroupService(machinePoolScope)
-
-	// TODO(richard.chen): call reconcileTags inside reconcileLaunchTemplate
+	
 	if machinePoolScope.ManagedMachinePool.Spec.AWSLaunchTemplate != nil {
 		if err := r.reconcileLaunchTemplate(machinePoolScope, ec2Scope); err != nil {
 			r.Recorder.Eventf(machinePoolScope.ManagedMachinePool, corev1.EventTypeWarning, "FailedLaunchTemplateReconcile", "Failed to reconcile launch template: %v", err)
