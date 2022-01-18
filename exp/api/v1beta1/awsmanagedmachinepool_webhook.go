@@ -116,6 +116,25 @@ func (r *AWSManagedMachinePool) validateRemoteAccess() field.ErrorList {
 	return allErrs
 }
 
+func (r *AWSManagedMachinePool) validateLaunchTemplate() field.ErrorList {
+	var allErrs field.ErrorList
+	if r.Spec.AWSLaunchTemplate == nil {
+		return allErrs
+	}
+
+	if r.Spec.AMIType != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AMIType"), r.Spec.AMIType, "AMIType cannot be specified when LaunchTemplate is specified"),)
+	}
+	if r.Spec.InstanceType != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "InstanceType"), r.Spec.InstanceType, "InstanceType cannot be specified when LaunchTemplate is specified"),)
+	}
+	if r.Spec.DiskSize != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "DiskSize"), r.Spec.DiskSize, "DiskSize cannot be specified when LaunchTemplate is specified"),)
+	}
+
+	return allErrs
+}
+
 // ValidateCreate will do any extra validation when creating a AWSManagedMachinePool.
 func (r *AWSManagedMachinePool) ValidateCreate() error {
 	mmpLog.Info("AWSManagedMachinePool validate create", "name", r.Name)
@@ -132,6 +151,9 @@ func (r *AWSManagedMachinePool) ValidateCreate() error {
 		allErrs = append(allErrs, errs...)
 	}
 	if errs := r.validateNodegroupUpdateConfig(); len(errs) > 0 {
+		allErrs = append(allErrs, errs...)
+	}
+	if errs := r.validateLaunchTemplate(); len(errs) > 0 {
 		allErrs = append(allErrs, errs...)
 	}
 
