@@ -534,7 +534,6 @@ spec:
                   by default.
                 type: object
               amiType:
-                default: AL2_x86_64
                 description: AMIType defines the AMI type
                 enum:
                 - AL2_x86_64

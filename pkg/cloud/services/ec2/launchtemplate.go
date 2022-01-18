@@ -169,11 +169,14 @@ func (s *Service) createLaunchTemplateData(scope *scope.LaunchTemplateScope, ima
 
 	data := &ec2.RequestLaunchTemplateData{
 		InstanceType: aws.String(lt.InstanceType),
-		IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
-			Name: aws.String(lt.IamInstanceProfile),
-		},
 		KeyName:  sshKeyNamePtr,
 		UserData: pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
+	}
+
+	if len(lt.IamInstanceProfile) > 0 {
+		data.IamInstanceProfile = &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
+			Name: aws.String(lt.IamInstanceProfile),
+		}
 	}
 
 	ids, err := s.GetCoreNodeSecurityGroups(scope)

@@ -380,7 +380,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 	}
 
 	if machinePoolScope.ManagedMachinePool.Status.LaunchTemplateVersion == nil {
-		launchTemplateVersion, err := ec2svc.GetLaunchTemplateLatestVersion(machinePoolScope.Name())
+		launchTemplateVersion, err := ec2svc.GetLaunchTemplateLatestVersion(*machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID)
 		if err != nil {
 			conditions.MarkUnknown(machinePoolScope.ManagedMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
 			return err
