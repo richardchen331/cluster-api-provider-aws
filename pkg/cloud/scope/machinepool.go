@@ -49,6 +49,7 @@ type MachinePoolScope struct {
 	MachinePool    *expclusterv1.MachinePool
 	InfraCluster   EC2Scope
 	AWSMachinePool *expinfrav1.AWSMachinePool
+	LaunchTemplateScope LaunchTemplateScope
 }
 
 // MachinePoolScopeParams defines a scope defined around a machine and its cluster.
@@ -99,6 +100,17 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
 
+	LaunchTemplateScope, err := NewLaunchTemplateScope(LaunchTemplateScopeParams{
+		Logger: params.Logger,
+
+		AWSLaunchTemplate: &params.AWSMachinePool.Spec.AWSLaunchTemplate,
+		MachinePool:    params.MachinePool,
+		InfraCluster:   params.InfraCluster,
+		name: params.AWSMachinePool.Name,
+		additionalTags: params.AWSMachinePool.Spec.AdditionalTags,
+		launchTemplateID: params.AWSMachinePool.Status.LaunchTemplateID,
+	})
+
 	return &MachinePoolScope{
 		Logger:      *params.Logger,
 		client:      params.Client,
@@ -108,6 +120,7 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		MachinePool:    params.MachinePool,
 		InfraCluster:   params.InfraCluster,
 		AWSMachinePool: params.AWSMachinePool,
+		LaunchTemplateScope: *LaunchTemplateScope,
 	}, nil
 }
 

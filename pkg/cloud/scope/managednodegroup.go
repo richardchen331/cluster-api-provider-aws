@@ -19,10 +19,11 @@ package scope
 import (
 	"context"
 	"fmt"
-
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -51,6 +52,9 @@ type ManagedMachinePoolScopeParams struct {
 
 	EnableIAM            bool
 	AllowAdditionalRoles bool
+
+	LaunchTemplateScope LaunchTemplateScope
+	InfraCluster	EC2Scope
 }
 
 // NewManagedMachinePoolScope creates a new Scope from the supplied parameters.
@@ -87,6 +91,17 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
 
+	LaunchTemplateScope, err := NewLaunchTemplateScope(LaunchTemplateScopeParams{
+		Logger: params.Logger,
+
+		AWSLaunchTemplate: params.ManagedMachinePool.Spec.AWSLaunchTemplate,
+		MachinePool:    params.MachinePool,
+		InfraCluster:   params.InfraCluster,
+		name: params.ManagedMachinePool.Name,
+		additionalTags: params.ManagedMachinePool.Spec.AdditionalTags,
+		launchTemplateID: *params.ManagedMachinePool.Status.LaunchTemplateID,
+	})
+
 	return &ManagedMachinePoolScope{
 		Logger:               *params.Logger,
 		Client:               params.Client,
@@ -100,6 +115,7 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		controllerName:       params.ControllerName,
 		enableIAM:            params.EnableIAM,
 		allowAdditionalRoles: params.AllowAdditionalRoles,
+		LaunchTemplateScope: *LaunchTemplateScope,
 	}, nil
 }
 
@@ -120,6 +136,8 @@ type ManagedMachinePoolScope struct {
 
 	enableIAM            bool
 	allowAdditionalRoles bool
+
+	LaunchTemplateScope LaunchTemplateScope
 }
 
 // ManagedPoolName returns the managed machine pool name.
@@ -280,4 +298,40 @@ func (s *ManagedMachinePoolScope) KubernetesClusterName() string {
 // NodegroupName is the name of the EKS nodegroup.
 func (s *ManagedMachinePoolScope) NodegroupName() string {
 	return s.ManagedMachinePool.Spec.EKSNodegroupName
+}
+
+func (m *ManagedMachinePoolScope) Name() string {
+	return m.ManagedMachinePool.Name
+}
+
+func (m *ManagedMachinePoolScope) Namespace() string {
+	return m.ManagedMachinePool.Namespace
+}
+
+func (m *ManagedMachinePoolScope) GetRawBootstrapData() ([]byte, error) {
+	if m.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName == nil {
+		return nil, errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
+	}
+
+	secret := &corev1.Secret{}
+	key := types.NamespacedName{Namespace: m.Namespace(), Name: *m.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName}
+
+	if err := m.Client.Get(context.TODO(), key, secret); err != nil {
+		return nil, errors.Wrapf(err, "failed to retrieve bootstrap data secret for AWSManagedMachinePool %s/%s", m.Namespace(), m.Name())
+	}
+
+	value, ok := secret.Data["value"]
+	if !ok {
+		return nil, errors.New("error retrieving bootstrap data: secret value key is missing")
+	}
+
+	return value, nil
+}
+
+func (m *ManagedMachinePoolScope) SetLaunchTemplateIDStatus(id string) {
+	m.ManagedMachinePool.Status.LaunchTemplateID = &id
+}
+
+func (m *ManagedMachinePoolScope) SetLaunchTemplateVersionStatus(version string) {
+	m.ManagedMachinePool.Status.LaunchTemplateVersion = &version
 }

@@ -149,6 +149,9 @@ type AWSManagedMachinePoolSpec struct {
 	// to the nodegroup.
 	// +optional
 	UpdateConfig *UpdateConfig `json:"updateConfig,omitempty"`
+
+	// +optional
+	AWSLaunchTemplate *AWSLaunchTemplate `json:"awsLaunchTemplate"`
 }
 
 // ManagedMachinePoolScaling specifies scaling options.
@@ -180,6 +183,14 @@ type AWSManagedMachinePoolStatus struct {
 	// Replicas is the most recently observed number of replicas.
 	// +optional
 	Replicas int32 `json:"replicas"`
+
+	// The ID of the launch template
+	// +optional
+	LaunchTemplateID *string `json:"launchTemplateID,omitempty"`
+
+	// The version of the launch template
+	// +optional
+	LaunchTemplateVersion *string `json:"launchTemplateVersion,omitempty"`
 
 	// FailureReason will be set in the event that there is a terminal problem
 	// reconciling the MachinePool and will contain a succinct value suitable
