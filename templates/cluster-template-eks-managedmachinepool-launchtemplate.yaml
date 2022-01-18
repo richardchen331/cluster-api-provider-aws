@@ -1,0 +1,161 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: dkc-test-lt
+  namespace: capa-system
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  infrastructureRef:
+    kind: AWSManagedControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    name: dkc-test-lt-control-plane
+  controlPlaneRef:
+    kind: AWSManagedControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    name: dkc-test-lt-control-plane
+---
+kind: AWSManagedControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+metadata:
+  name: dkc-test-lt-control-plane
+  namespace: capa-system
+spec:
+  region: us-west-2
+  eksClusterName: dkc-eks-lt
+  sshKeyName: default
+  version: v1.19
+  roleName: eks-controlplane.cluster-api-provider-aws.sigs.k8s.io
+  iamAuthenticatorConfig:
+    mapRoles:
+      - groups:
+          - system:masters
+        rolearn: arn:aws:iam::707343435239:role/aws-dev_databricks-view-only
+        username: admin
+      - groups:
+          - system:masters
+        rolearn: arn:aws:iam::707343435239:role/aws-dev_databricks-power-user
+        username: admin
+  endpointAccess:
+    private: true
+    public: true
+    publicCIDRs:
+      - 52.34.66.144/32
+      - 54.201.30.174/32
+      - 54.186.59.157/32
+      - 52.41.115.21/32
+      - 34.217.171.253/32
+      - 35.161.164.127/32
+      - 44.230.222.179/32
+      - 44.228.166.17/32
+      - 34.236.11.250/32
+      - 18.235.208.245/32
+      - 18.158.110.150/32
+      - 18.193.11.166/32
+      - 35.156.11.187/32
+      - 35.164.56.131/32
+      - 44.235.14.142/32
+      - 52.41.247.45/32
+      - 44.235.35.157/32
+      - 54.183.161.120/32
+      - 52.8.217.117/32
+  logging:
+    apiServer: true
+    audit: true
+    authenticator: true
+    controllerManager: true
+    scheduler: true
+  additionalTags:
+    Owner: eng-compute-lifecycle-team@databricks.com
+  identityRef:
+    kind: AWSClusterRoleIdentity
+    name: capa-707343435239-controller-role
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: dkc-test-lt-sys
+  namespace: capa-system
+spec:
+  clusterName: dkc-test-lt
+  replicas: 3
+  template:
+    spec:
+      clusterName: dkc-test-lt
+      bootstrap:
+        dataSecretName: dkc-test-lt-sys-userdata
+      infrastructureRef:
+        name: dkc-test-lt-sys
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AWSManagedMachinePool
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AWSManagedMachinePool
+metadata:
+  name: dkc-test-lt-sys
+  namespace: capa-system
+spec:
+  eksNodegroupName: sys
+  scaling:
+    maxSize: 3
+    minSize: 1
+  roleName: eks-nodegroup.cluster-api-provider-aws.sigs.k8s.io
+  additionalASGTags:
+    Owner: eng-compute-lifecycle-team@databricks.com
+  additionalTags:
+    Owner: eng-compute-lifecycle-team@databricks.com
+  awsLaunchTemplate:
+    ami:
+      id: ami-0eb873de16468e55e
+    instanceType: i3.metal
+    rootVolume:
+      deviceName: /dev/xvda
+      size: 512
+      type: gp2
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dkc-test-lt-sys-userdata
+  namespace: capa-system
+data:
+  value: IyEvYmluL2Jhc2gKL2V0Yy9la3MvYm9vdHN0cmFwLnNoIGRrYy1tbHNlcnZpbmctcHJvdG90eXBlMSBcCiAgLS1jb250YWluZXItcnVudGltZSBjb250YWluZXJkCg==
+type: Opaque
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AWSClusterRoleIdentity
+metadata:
+  name: capa-707343435239-controller-role
+spec:
+  allowedNamespaces:
+    list:
+      - capa-system
+    selector: {}
+  roleARN: >-
+    arn:aws:iam::707343435239:role/controllers.cluster-api-provider-aws.sigs.k8s.io
+  sourceIdentityRef:
+    kind: AWSClusterStaticIdentity
+    name: cluster-identity-kaas
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AWSClusterStaticIdentity
+metadata:
+  name: cluster-identity-kaas
+spec:
+  allowedNamespaces:
+    list:
+      - capa-system
+    selector: {}
+  secretRef: cluster-identity-secret-kaas
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-identity-secret-kaas
+  namespace: capa-system
+data:
+  AccessKeyID: QUtJQTU3S0JOVFpZRjMySUMyV1I=
+  SecretAccessKey: bCtLamlQaTlmNGV0c0xUZDR1SXl5RUZOQ1hnNkhxNkhLMkJRWXFNdQ==
+type: Opaque
