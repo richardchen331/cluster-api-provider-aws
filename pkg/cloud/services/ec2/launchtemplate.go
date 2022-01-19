@@ -348,10 +348,13 @@ func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1
 		AMI: infrav1.AMIReference{
 			ID: v.ImageId,
 		},
-		IamInstanceProfile: aws.StringValue(v.IamInstanceProfile.Name),
 		InstanceType:       aws.StringValue(v.InstanceType),
 		SSHKeyName:         v.KeyName,
 		VersionNumber:      d.VersionNumber,
+	}
+
+	if v.IamInstanceProfile != nil {
+		i.IamInstanceProfile = aws.StringValue(v.IamInstanceProfile.Name)
 	}
 
 	// Extract IAM Instance Profile name from ARN
