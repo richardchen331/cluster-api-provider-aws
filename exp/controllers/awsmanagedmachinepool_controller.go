@@ -348,7 +348,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 		return err
 	}
 
-	imageID, err := ec2svc.DiscoverLaunchTemplateAMI(&machinePoolScope.LaunchTemplateScope)
+	imageID, err := ec2svc.DiscoverLaunchTemplateAMI(machinePoolScope.LaunchTemplateScope)
 	if err != nil {
 		conditions.MarkFalse(machinePoolScope.ManagedMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return err
@@ -356,7 +356,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 
 	if launchTemplate == nil {
 		machinePoolScope.Info("no existing launch template found, creating")
-		launchTemplateID, err := ec2svc.CreateLaunchTemplate(&machinePoolScope.LaunchTemplateScope, imageID, bootstrapData)
+		launchTemplateID, err := ec2svc.CreateLaunchTemplate(machinePoolScope.LaunchTemplateScope, imageID, bootstrapData)
 		if err != nil {
 			conditions.MarkFalse(machinePoolScope.ManagedMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return err
@@ -396,7 +396,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 	// Check if the instance tags were changed. If they were, create a new LaunchTemplate.
 	tagsChanged, _, _, _ := tagsChanged(annotation, machinePoolScope.AdditionalTags()) // nolint:dogsled
 
-	needsUpdate, err := ec2svc.LaunchTemplateNeedsUpdate(&machinePoolScope.LaunchTemplateScope, machinePoolScope.LaunchTemplateScope.AWSLaunchTemplate, launchTemplate)
+	needsUpdate, err := ec2svc.LaunchTemplateNeedsUpdate(machinePoolScope.LaunchTemplateScope, machinePoolScope.LaunchTemplateScope.AWSLaunchTemplate, launchTemplate)
 	if err != nil {
 		return err
 	}
@@ -424,7 +424,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 		if err := ec2svc.PruneLaunchTemplateVersions(*machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID); err != nil {
 			return err
 		}
-		if err := ec2svc.CreateLaunchTemplateVersion(machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID, &machinePoolScope.LaunchTemplateScope, imageID, bootstrapData); err != nil {
+		if err := ec2svc.CreateLaunchTemplateVersion(machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID, machinePoolScope.LaunchTemplateScope, imageID, bootstrapData); err != nil {
 			return err
 		}
 		version, err := ec2svc.GetLaunchTemplateLatestVersion(*machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID)

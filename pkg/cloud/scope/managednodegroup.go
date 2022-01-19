@@ -114,7 +114,7 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		controllerName:       params.ControllerName,
 		enableIAM:            params.EnableIAM,
 		allowAdditionalRoles: params.AllowAdditionalRoles,
-		LaunchTemplateScope: *LaunchTemplateScope,
+		LaunchTemplateScope: LaunchTemplateScope,
 	}, nil
 }
 
@@ -136,7 +136,7 @@ type ManagedMachinePoolScope struct {
 	enableIAM            bool
 	allowAdditionalRoles bool
 
-	LaunchTemplateScope LaunchTemplateScope
+	LaunchTemplateScope *LaunchTemplateScope
 }
 
 // ManagedPoolName returns the managed machine pool name.

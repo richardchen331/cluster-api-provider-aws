@@ -332,10 +332,13 @@ func (s *NodegroupService) reconcileNodegroupVersion(ng *eks.Nodegroup) error {
 	specAMI := s.scope.ManagedMachinePool.Spec.AMIVersion
 	ngAMI := *ng.ReleaseVersion
 	statusLaunchTemplateVersion := s.scope.ManagedMachinePool.Status.LaunchTemplateVersion
-	ngLaunchTemplateVersion := *ng.LaunchTemplate.Version
+	var ngLaunchTemplateVersion *string
+	if ng.LaunchTemplate != nil {
+		ngLaunchTemplateVersion = ng.LaunchTemplate.Version
+	}
 
 	eksClusterName := s.scope.KubernetesClusterName()
-	if (specVersion != nil && ngVersion.LessThan(specVersion)) || (specAMI != nil && *specAMI != ngAMI) || (statusLaunchTemplateVersion != nil && *statusLaunchTemplateVersion != ngLaunchTemplateVersion) {
+	if (specVersion != nil && ngVersion.LessThan(specVersion)) || (specAMI != nil && *specAMI != ngAMI) || (statusLaunchTemplateVersion != nil && *statusLaunchTemplateVersion != *ngLaunchTemplateVersion) {
 		input := &eks.UpdateNodegroupVersionInput{
 			ClusterName:   aws.String(eksClusterName),
 			NodegroupName: aws.String(s.scope.NodegroupName()),
@@ -351,7 +354,7 @@ func (s *NodegroupService) reconcileNodegroupVersion(ng *eks.Nodegroup) error {
 		} else if specAMI != nil && *specAMI != ngAMI {
 			input.ReleaseVersion = specAMI
 			updateMsg = fmt.Sprintf("to AMI version %s", *input.ReleaseVersion)
-		} else if statusLaunchTemplateVersion != nil && *statusLaunchTemplateVersion != ngLaunchTemplateVersion {
+		} else if statusLaunchTemplateVersion != nil && *statusLaunchTemplateVersion != *ngLaunchTemplateVersion {
 			input.LaunchTemplate = &eks.LaunchTemplateSpecification{
 				Id: s.scope.ManagedMachinePool.Status.LaunchTemplateID,
 				Version: statusLaunchTemplateVersion,

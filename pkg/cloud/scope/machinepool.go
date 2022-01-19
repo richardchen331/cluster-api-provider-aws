@@ -49,7 +49,7 @@ type MachinePoolScope struct {
 	MachinePool    *expclusterv1.MachinePool
 	InfraCluster   EC2Scope
 	AWSMachinePool *expinfrav1.AWSMachinePool
-	LaunchTemplateScope LaunchTemplateScope
+	LaunchTemplateScope *LaunchTemplateScope
 }
 
 // MachinePoolScopeParams defines a scope defined around a machine and its cluster.
@@ -119,7 +119,7 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		MachinePool:    params.MachinePool,
 		InfraCluster:   params.InfraCluster,
 		AWSMachinePool: params.AWSMachinePool,
-		LaunchTemplateScope: *LaunchTemplateScope,
+		LaunchTemplateScope: LaunchTemplateScope,
 	}, nil
 }
 
