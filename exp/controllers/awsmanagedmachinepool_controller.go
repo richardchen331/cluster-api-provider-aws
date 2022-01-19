@@ -214,6 +214,10 @@ func (r *AWSManagedMachinePoolReconciler) reconcileNormal(
 			return ctrl.Result{}, err
 		}
 
+		if err := r.reconcileTags(machinePoolScope, ec2Scope); err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "error updating tags")
+		}
+
 		// set the LaunchTemplateReady condition
 		conditions.MarkTrue(machinePoolScope.ManagedMachinePool, expinfrav1.LaunchTemplateReadyCondition)
 	}
@@ -369,7 +373,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 	// LaunchTemplateID is set during LaunchTemplate creation, but for a scenario such as `clusterctl move`, status fields become blank.
 	// If launchTemplate already exists but LaunchTemplateID field in the status is empty, get the ID and update the status.
 	if machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID == nil {
-		launchTemplateID, err := ec2svc.GetLaunchTemplateID(machinePoolScope.Name())
+		launchTemplateID, err := ec2svc.GetLaunchTemplateID(machinePoolScope.LaunchTemplateScope.Name())
 		if err != nil {
 			conditions.MarkUnknown(machinePoolScope.ManagedMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
 			return err
@@ -394,7 +398,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 	}
 
 	// Check if the instance tags were changed. If they were, create a new LaunchTemplate.
-	tagsChanged, _, _, _ := tagsChanged(annotation, machinePoolScope.AdditionalTags()) // nolint:dogsled
+	tagsChanged, _, _, _ := tagsChanged(annotation, machinePoolScope.LaunchTemplateScope.AdditionalTags()) // nolint:dogsled
 
 	needsUpdate, err := ec2svc.LaunchTemplateNeedsUpdate(machinePoolScope.LaunchTemplateScope, machinePoolScope.LaunchTemplateScope.AWSLaunchTemplate, launchTemplate)
 	if err != nil {
@@ -457,6 +461,22 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 	return nil
 }
 
+func (r *AWSManagedMachinePoolReconciler) reconcileTags(machinePoolScope *scope.ManagedMachinePoolScope, ec2Scope scope.EC2Scope) error {
+	ec2Svc := r.getEC2Service(ec2Scope)
+
+	launchTemplateID := machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID
+	additionalTags := machinePoolScope.LaunchTemplateScope.AdditionalTags()
+
+	tagsChanged, err := r.ensureTags(ec2Svc, machinePoolScope.ManagedMachinePool, launchTemplateID, additionalTags)
+	if err != nil {
+		return err
+	}
+	if tagsChanged {
+		r.Recorder.Eventf(machinePoolScope.ManagedMachinePool, corev1.EventTypeNormal, "UpdatedTags", "updated tags on resources")
+	}
+	return nil
+}
+
 func (r *AWSManagedMachinePoolReconciler) machinePoolAnnotationJSON(machinePool *expinfrav1.AWSManagedMachinePool, annotation string) (map[string]interface{}, error) {
 	out := map[string]interface{}{}
 
@@ -475,4 +495,56 @@ func (r *AWSManagedMachinePoolReconciler) machinePoolAnnotationJSON(machinePool 
 
 func (r *AWSManagedMachinePoolReconciler) machinePoolAnnotation(machinePool *expinfrav1.AWSManagedMachinePool, annotation string) string {
 	return machinePool.GetAnnotations()[annotation]
+}
+
+func (r *AWSManagedMachinePoolReconciler) updateMachinePoolAnnotationJSON(machinePool *expinfrav1.AWSManagedMachinePool, annotation string, content map[string]interface{}) error {
+	b, err := json.Marshal(content)
+	if err != nil {
+		return err
+	}
+
+	r.updateMachinePoolAnnotation(machinePool, annotation, string(b))
+	return nil
+}
+
+func (r *AWSManagedMachinePoolReconciler) updateMachinePoolAnnotation(machinePool *expinfrav1.AWSManagedMachinePool, annotation, content string) {
+	// Get the annotations
+	annotations := machinePool.GetAnnotations()
+
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// Set our annotation to the given content.
+	annotations[annotation] = content
+
+	// Update the machine object with these annotations
+	machinePool.SetAnnotations(annotations)
+}
+
+func (r *AWSManagedMachinePoolReconciler) ensureTags(ec2svc services.EC2MachineInterface, machinePool *expinfrav1.AWSManagedMachinePool, launchTemplateID *string, additionalTags map[string]string) (bool, error) {
+	annotation, err := r.machinePoolAnnotationJSON(machinePool, TagsLastAppliedAnnotation)
+	if err != nil {
+		return false, err
+	}
+
+	// Check if the instance tags were changed. If they were, update them.
+	// It would be possible here to only send new/updated tags, but for the
+	// moment we send everything, even if only a single tag was created or
+	// upated.
+	changed, created, deleted, newAnnotation := tagsChanged(annotation, additionalTags)
+	if changed {
+		err := ec2svc.UpdateResourceTags(launchTemplateID, created, deleted)
+		if err != nil {
+			return false, err
+		}
+
+		// We also need to update the annotation if anything changed.
+		err = r.updateMachinePoolAnnotationJSON(machinePool, TagsLastAppliedAnnotation, newAnnotation)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return changed, nil
 }
