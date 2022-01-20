@@ -245,7 +245,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileDelete(
 
 	if machinePoolScope.ManagedMachinePool.Spec.AWSLaunchTemplate != nil {
 		launchTemplateID := machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID
-		launchTemplate, _, err := ec2Svc.GetLaunchTemplate(machinePoolScope.Name())
+		launchTemplate, _, err := ec2Svc.GetLaunchTemplate(machinePoolScope.LaunchTemplateScope.Name())
 		if err != nil {
 			return ctrl.Result{}, err
 		}
