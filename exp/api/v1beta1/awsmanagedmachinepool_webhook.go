@@ -125,11 +125,18 @@ func (r *AWSManagedMachinePool) validateLaunchTemplate() field.ErrorList {
 	if r.Spec.AMIType != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AMIType"), r.Spec.AMIType, "AMIType cannot be specified when LaunchTemplate is specified"))
 	}
+	if r.Spec.AMIVersion != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AMIVersion"), r.Spec.AMIVersion, "AMIVersion cannot be specified when LaunchTemplate is specified"))
+	}
 	if r.Spec.InstanceType != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "InstanceType"), r.Spec.InstanceType, "InstanceType cannot be specified when LaunchTemplate is specified"))
 	}
 	if r.Spec.DiskSize != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "DiskSize"), r.Spec.DiskSize, "DiskSize cannot be specified when LaunchTemplate is specified"))
+	}
+
+	if r.Spec.AWSLaunchTemplate.IamInstanceProfile != "" {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AWSLaunchTemplate", "IamInstanceProfile"), r.Spec.AWSLaunchTemplate.IamInstanceProfile, "IAM instance profile in launch template is prohibited in EKS managed node group"))
 	}
 
 	return allErrs
@@ -190,6 +197,9 @@ func (r *AWSManagedMachinePool) ValidateUpdate(old runtime.Object) error {
 	if errs := r.validateNodegroupUpdateConfig(); len(errs) > 0 {
 		allErrs = append(allErrs, errs...)
 	}
+	if errs := r.validateLaunchTemplate(); len(errs) > 0 {
+		allErrs = append(allErrs, errs...)
+	}
 
 	if len(allErrs) == 0 {
 		return nil
@@ -238,6 +248,7 @@ func (r *AWSManagedMachinePool) validateImmutable(old *AWSManagedMachinePool) fi
 	appendErrorIfMutated(old.Spec.AMIType, r.Spec.AMIType, "amiType")
 	appendErrorIfMutated(old.Spec.RemoteAccess, r.Spec.RemoteAccess, "remoteAccess")
 	appendErrorIfSetAndMutated(old.Spec.CapacityType, r.Spec.CapacityType, "capacityType")
+	appendErrorIfMutated(old.Spec.AWSLaunchTemplate.Name, r.Spec.AWSLaunchTemplate.Name, "awsLaunchTemplate.name")
 
 	return allErrs
 }
