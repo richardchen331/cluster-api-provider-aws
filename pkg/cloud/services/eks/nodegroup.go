@@ -243,7 +243,7 @@ func (s *NodegroupService) createNodegroup() (*eks.Nodegroup, error) {
 	}
 	if managedPool.AWSLaunchTemplate != nil {
 		input.LaunchTemplate = &eks.LaunchTemplateSpecification{
-			Id: s.scope.ManagedMachinePool.Status.LaunchTemplateID,
+			Id:      s.scope.ManagedMachinePool.Status.LaunchTemplateID,
 			Version: s.scope.ManagedMachinePool.Status.LaunchTemplateVersion,
 		}
 	}
@@ -356,10 +356,10 @@ func (s *NodegroupService) reconcileNodegroupVersion(ng *eks.Nodegroup) error {
 			updateMsg = fmt.Sprintf("to AMI version %s", *input.ReleaseVersion)
 		} else if statusLaunchTemplateVersion != nil && *statusLaunchTemplateVersion != *ngLaunchTemplateVersion {
 			input.LaunchTemplate = &eks.LaunchTemplateSpecification{
-				Id: s.scope.ManagedMachinePool.Status.LaunchTemplateID,
+				Id:      s.scope.ManagedMachinePool.Status.LaunchTemplateID,
 				Version: statusLaunchTemplateVersion,
 			}
-			updateMsg = fmt.Sprintf("to launch template version %s", statusLaunchTemplateVersion)
+			updateMsg = fmt.Sprintf("to launch template version %s", *statusLaunchTemplateVersion)
 		}
 
 		if err := wait.WaitForWithRetryable(wait.NewBackoff(), func() (bool, error) {

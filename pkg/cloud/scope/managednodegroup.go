@@ -19,6 +19,7 @@ package scope
 import (
 	"context"
 	"fmt"
+
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -54,7 +55,7 @@ type ManagedMachinePoolScopeParams struct {
 	AllowAdditionalRoles bool
 
 	LaunchTemplateScope LaunchTemplateScope
-	InfraCluster	EC2Scope
+	InfraCluster        EC2Scope
 }
 
 // NewManagedMachinePoolScope creates a new Scope from the supplied parameters.
@@ -95,11 +96,14 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		Logger: params.Logger,
 
 		AWSLaunchTemplate: params.ManagedMachinePool.Spec.AWSLaunchTemplate,
-		MachinePool:    params.MachinePool,
-		InfraCluster:   params.InfraCluster,
-		name: fmt.Sprintf("%s-%s", params.ControlPlane.Name, params.ManagedMachinePool.Name),
-		additionalTags: params.ManagedMachinePool.Spec.AdditionalTags,
+		MachinePool:       params.MachinePool,
+		InfraCluster:      params.InfraCluster,
+		name:              fmt.Sprintf("%s-%s", params.ControlPlane.Name, params.ManagedMachinePool.Name),
+		additionalTags:    params.ManagedMachinePool.Spec.AdditionalTags,
 	})
+	if err != nil {
+		return nil, errors.New("error getting launch template scope")
+	}
 
 	return &ManagedMachinePoolScope{
 		Logger:               *params.Logger,
@@ -114,7 +118,7 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		controllerName:       params.ControllerName,
 		enableIAM:            params.EnableIAM,
 		allowAdditionalRoles: params.AllowAdditionalRoles,
-		LaunchTemplateScope: LaunchTemplateScope,
+		LaunchTemplateScope:  LaunchTemplateScope,
 	}, nil
 }
 

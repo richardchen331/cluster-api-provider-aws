@@ -123,13 +123,13 @@ func (r *AWSManagedMachinePool) validateLaunchTemplate() field.ErrorList {
 	}
 
 	if r.Spec.AMIType != nil {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AMIType"), r.Spec.AMIType, "AMIType cannot be specified when LaunchTemplate is specified"),)
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "AMIType"), r.Spec.AMIType, "AMIType cannot be specified when LaunchTemplate is specified"))
 	}
 	if r.Spec.InstanceType != nil {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "InstanceType"), r.Spec.InstanceType, "InstanceType cannot be specified when LaunchTemplate is specified"),)
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "InstanceType"), r.Spec.InstanceType, "InstanceType cannot be specified when LaunchTemplate is specified"))
 	}
 	if r.Spec.DiskSize != nil {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "DiskSize"), r.Spec.DiskSize, "DiskSize cannot be specified when LaunchTemplate is specified"),)
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "DiskSize"), r.Spec.DiskSize, "DiskSize cannot be specified when LaunchTemplate is specified"))
 	}
 
 	return allErrs

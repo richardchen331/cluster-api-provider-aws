@@ -20,13 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,7 +40,10 @@ import (
 	ekscontrolplanev1 "sigs.k8s.io/cluster-api-provider-aws/controlplane/eks/api/v1beta1"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/eks"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -141,7 +141,7 @@ func (r *AWSManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 
 	managedControlPlaneScope, err := scope.NewManagedControlPlaneScope(scope.ManagedControlPlaneScopeParams{
 		Client:         r.Client,
-		Logger:         log,
+		Logger:         &log,
 		Cluster:        cluster,
 		ControlPlane:   controlPlane,
 		ControllerName: "awsManagedControlPlane",
@@ -166,7 +166,7 @@ func (r *AWSManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 		EnableIAM:            r.EnableIAM,
 		AllowAdditionalRoles: r.AllowAdditionalRoles,
 		Endpoints:            r.Endpoints,
-		InfraCluster: managedControlPlaneScope,
+		InfraCluster:         managedControlPlaneScope,
 	})
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to create scope")
@@ -405,20 +405,6 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 		return err
 	}
 
-	// If there is a change: before changing the template, check if there exist an ongoing instance refresh,
-	// because only 1 instance refresh can be "InProgress". If template is updated when refresh cannot be started,
-	// that change will not trigger a refresh. Do not start an instance refresh if only userdata changed.
-	//if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
-	//	canStart, err := ekssvc.CanStartUpdate()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	if !canStart {
-	//		conditions.MarkFalse(machinePoolScope.ManagedMachinePool, expinfrav1.InstanceRefreshStartedCondition, expinfrav1.InstanceRefreshNotReadyReason, clusterv1.ConditionSeverityWarning, "")
-	//		return errors.New("Cannot start a new instance refresh. Unfinished instance refresh exist")
-	//	}
-	//}
-
 	// Create a new launch template version if there's a difference in configuration, tags,
 	// userdata, OR we've discovered a new AMI ID.
 	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID || launchTemplateUserDataHash != bootstrapDataHash {
@@ -436,27 +422,8 @@ func (r *AWSManagedMachinePoolReconciler) reconcileLaunchTemplate(machinePoolSco
 			return err
 		}
 		machinePoolScope.SetLaunchTemplateVersionStatus(version)
-		machinePoolScope.PatchObject()
+		return machinePoolScope.PatchObject()
 	}
-
-	// After creating a new version of launch template, instance refresh is required
-	// to trigger a rolling replacement of all previously launched instances.
-	// If ONLY the userdata changed, previously launched instances continue to use the old launch
-	// template.
-	//
-	// FIXME(dlipovetsky,sedefsavas): If the controller terminates, or the StartASGInstanceRefresh returns an error,
-	// this conditional will not evaluate to true the next reconcile. If any machines use an older
-	// Launch Template version, and the difference between the older and current versions is _more_
-	// than userdata, we should start an Instance Refresh.
-	//if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
-	//	machinePoolScope.Info("starting instance refresh", "number of instances", machinePoolScope.MachinePool.Spec.Replicas)
-	//	asgSvc := r.getASGService(ec2Scope)
-	//	if err := asgSvc.StartASGInstanceRefresh(machinePoolScope); err != nil {
-	//		conditions.MarkFalse(machinePoolScope.ManagedMachinePool, expinfrav1.InstanceRefreshStartedCondition, expinfrav1.InstanceRefreshFailedReason, clusterv1.ConditionSeverityError, err.Error())
-	//		return err
-	//	}
-	//	conditions.MarkTrue(machinePoolScope.ManagedMachinePool, expinfrav1.InstanceRefreshStartedCondition)
-	//}
 
 	return nil
 }

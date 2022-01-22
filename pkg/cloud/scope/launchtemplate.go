@@ -20,6 +20,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2/klogr"
+
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1beta1"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
@@ -30,21 +31,21 @@ type LaunchTemplateScope struct {
 	logr.Logger
 
 	AWSLaunchTemplate *expinfrav1.AWSLaunchTemplate
-	MachinePool    *expclusterv1.MachinePool
-	InfraCluster   EC2Scope
-	name string
-	additionalTags infrav1.Tags
+	MachinePool       *expclusterv1.MachinePool
+	InfraCluster      EC2Scope
+	name              string
+	additionalTags    infrav1.Tags
 }
 
 // LaunchTemplateScopeParams defines a scope defined around a launch template.
 type LaunchTemplateScopeParams struct {
-	Logger logr.Logger
+	Logger *logr.Logger
 
 	AWSLaunchTemplate *expinfrav1.AWSLaunchTemplate
-	MachinePool    *expclusterv1.MachinePool
-	InfraCluster   EC2Scope
-	name string
-	additionalTags infrav1.Tags
+	MachinePool       *expclusterv1.MachinePool
+	InfraCluster      EC2Scope
+	name              string
+	additionalTags    infrav1.Tags
 }
 
 // NewLaunchTemplateScope creates a new LaunchTemplateScope from the supplied parameters.
@@ -60,17 +61,18 @@ func NewLaunchTemplateScope(params LaunchTemplateScopeParams) (*LaunchTemplateSc
 	}
 
 	if params.Logger == nil {
-		params.Logger = klogr.New()
+		log := klogr.New()
+		params.Logger = &log
 	}
 
 	return &LaunchTemplateScope{
-		Logger:      params.Logger,
+		Logger: *params.Logger,
 
 		AWSLaunchTemplate: params.AWSLaunchTemplate,
-		MachinePool:    params.MachinePool,
-		InfraCluster:   params.InfraCluster,
-		name: params.name,
-		additionalTags: params.additionalTags,
+		MachinePool:       params.MachinePool,
+		InfraCluster:      params.InfraCluster,
+		name:              params.name,
+		additionalTags:    params.additionalTags,
 	}, nil
 }
 

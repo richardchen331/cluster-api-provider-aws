@@ -45,10 +45,10 @@ type MachinePoolScope struct {
 	client      client.Client
 	patchHelper *patch.Helper
 
-	Cluster        *clusterv1.Cluster
-	MachinePool    *expclusterv1.MachinePool
-	InfraCluster   EC2Scope
-	AWSMachinePool *expinfrav1.AWSMachinePool
+	Cluster             *clusterv1.Cluster
+	MachinePool         *expclusterv1.MachinePool
+	InfraCluster        EC2Scope
+	AWSMachinePool      *expinfrav1.AWSMachinePool
 	LaunchTemplateScope *LaunchTemplateScope
 }
 
@@ -104,21 +104,24 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		Logger: params.Logger,
 
 		AWSLaunchTemplate: &params.AWSMachinePool.Spec.AWSLaunchTemplate,
-		MachinePool:    params.MachinePool,
-		InfraCluster:   params.InfraCluster,
-		name: params.AWSMachinePool.Name,
-		additionalTags: params.AWSMachinePool.Spec.AdditionalTags,
+		MachinePool:       params.MachinePool,
+		InfraCluster:      params.InfraCluster,
+		name:              params.AWSMachinePool.Name,
+		additionalTags:    params.AWSMachinePool.Spec.AdditionalTags,
 	})
+	if err != nil {
+		return nil, errors.New("error getting launch template scope")
+	}
 
 	return &MachinePoolScope{
 		Logger:      *params.Logger,
 		client:      params.Client,
 		patchHelper: helper,
 
-		Cluster:        params.Cluster,
-		MachinePool:    params.MachinePool,
-		InfraCluster:   params.InfraCluster,
-		AWSMachinePool: params.AWSMachinePool,
+		Cluster:             params.Cluster,
+		MachinePool:         params.MachinePool,
+		InfraCluster:        params.InfraCluster,
+		AWSMachinePool:      params.AWSMachinePool,
 		LaunchTemplateScope: LaunchTemplateScope,
 	}, nil
 }
