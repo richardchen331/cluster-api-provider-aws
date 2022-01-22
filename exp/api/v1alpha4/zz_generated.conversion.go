@@ -1168,7 +1168,3 @@ func autoConvert_v1beta1_Taint_To_v1alpha4_Taint(in *v1beta1.Taint, out *Taint, 
 func Convert_v1beta1_Taint_To_v1alpha4_Taint(in *v1beta1.Taint, out *Taint, s conversion.Scope) error {
 	return autoConvert_v1beta1_Taint_To_v1alpha4_Taint(in, out, s)
 }
-
-func Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha4_AWSManagedMachinePoolStatus(in *v1beta1.AWSManagedMachinePoolStatus, out *AWSManagedMachinePoolStatus, s conversion.Scope) error {
-	return autoConvert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha4_AWSManagedMachinePoolStatus(in, out, s)
-}
