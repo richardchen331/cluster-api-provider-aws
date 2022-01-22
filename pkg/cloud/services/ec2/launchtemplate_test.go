@@ -486,7 +486,7 @@ func TestService_LaunchTemplateNeedsUpdate(t *testing.T) {
 					AWSCluster: ac,
 				},
 			}
-			machinePoolScope := &scope.MachinePoolScope{
+			launchTemplateScope := &scope.LaunchTemplateScope{
 				InfraCluster: &scope.ClusterScope{
 					AWSCluster: ac,
 				},

@@ -147,7 +147,7 @@ func (s *Service) CreateLaunchTemplateVersion(id *string, scope *scope.LaunchTem
 
 	input := &ec2.CreateLaunchTemplateVersionInput{
 		LaunchTemplateData: launchTemplateData,
-		LaunchTemplateId: id,
+		LaunchTemplateId:   id,
 	}
 
 	_, err = s.EC2Client.CreateLaunchTemplateVersion(input)
@@ -169,8 +169,8 @@ func (s *Service) createLaunchTemplateData(scope *scope.LaunchTemplateScope, ima
 
 	data := &ec2.RequestLaunchTemplateData{
 		InstanceType: aws.String(lt.InstanceType),
-		KeyName:  sshKeyNamePtr,
-		UserData: pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
+		KeyName:      sshKeyNamePtr,
+		UserData:     pointer.StringPtr(base64.StdEncoding.EncodeToString(userData)),
 	}
 
 	if len(lt.IamInstanceProfile) > 0 {
@@ -302,7 +302,7 @@ func (s *Service) PruneLaunchTemplateVersions(id string) error {
 func (s *Service) GetLaunchTemplateLatestVersion(id string) (string, error) {
 	input := &ec2.DescribeLaunchTemplateVersionsInput{
 		LaunchTemplateId: aws.String(id),
-		Versions: aws.StringSlice([]string{expinfrav1.LaunchTemplateLatestVersion}),
+		Versions:         aws.StringSlice([]string{expinfrav1.LaunchTemplateLatestVersion}),
 	}
 
 	out, err := s.EC2Client.DescribeLaunchTemplateVersions(input)
@@ -348,9 +348,9 @@ func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1
 		AMI: infrav1.AMIReference{
 			ID: v.ImageId,
 		},
-		InstanceType:       aws.StringValue(v.InstanceType),
-		SSHKeyName:         v.KeyName,
-		VersionNumber:      d.VersionNumber,
+		InstanceType:  aws.StringValue(v.InstanceType),
+		SSHKeyName:    v.KeyName,
+		VersionNumber: d.VersionNumber,
 	}
 
 	if v.IamInstanceProfile != nil {
