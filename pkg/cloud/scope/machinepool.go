@@ -110,7 +110,7 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		additionalTags:    params.AWSMachinePool.Spec.AdditionalTags,
 	})
 	if err != nil {
-		return nil, errors.New("error getting launch template scope")
+		return nil, errors.Wrap(err, "error getting launch template scope")
 	}
 
 	return &MachinePoolScope{

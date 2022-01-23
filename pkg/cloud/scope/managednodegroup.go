@@ -102,7 +102,7 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		additionalTags:    params.ManagedMachinePool.Spec.AdditionalTags,
 	})
 	if err != nil {
-		return nil, errors.New("error getting launch template scope")
+		return nil, errors.Wrap(err, "error getting launch template scope")
 	}
 
 	return &ManagedMachinePoolScope{

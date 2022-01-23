@@ -50,9 +50,6 @@ type LaunchTemplateScopeParams struct {
 
 // NewLaunchTemplateScope creates a new LaunchTemplateScope from the supplied parameters.
 func NewLaunchTemplateScope(params LaunchTemplateScopeParams) (*LaunchTemplateScope, error) {
-	if params.AWSLaunchTemplate == nil {
-		return nil, errors.New("aws launch template is required when creating a LaunchTemplateScope")
-	}
 	if params.MachinePool == nil {
 		return nil, errors.New("machinepool is required when creating a LaunchTemplateScope")
 	}
