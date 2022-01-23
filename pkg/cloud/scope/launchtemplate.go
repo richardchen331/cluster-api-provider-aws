@@ -26,6 +26,10 @@ import (
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 )
 
+var (
+	AWSManagedControlPlaneKind = "AWSManagedControlPlane"
+)
+
 // LaunchTemplateScope defines a scope defined around a launch template.
 type LaunchTemplateScope struct {
 	logr.Logger
@@ -74,7 +78,7 @@ func NewLaunchTemplateScope(params LaunchTemplateScopeParams) (*LaunchTemplateSc
 }
 
 func (m *LaunchTemplateScope) IsEKSManaged() bool {
-	return m.InfraCluster.InfraCluster().GetObjectKind().GroupVersionKind().Kind == "AWSManagedControlPlane"
+	return m.InfraCluster.InfraCluster().GetObjectKind().GroupVersionKind().Kind == AWSManagedControlPlaneKind
 }
 
 func (m *LaunchTemplateScope) Name() string {

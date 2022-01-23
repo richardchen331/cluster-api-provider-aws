@@ -303,24 +303,24 @@ func (s *ManagedMachinePoolScope) NodegroupName() string {
 	return s.ManagedMachinePool.Spec.EKSNodegroupName
 }
 
-func (m *ManagedMachinePoolScope) Name() string {
-	return m.ManagedMachinePool.Name
+func (s *ManagedMachinePoolScope) Name() string {
+	return s.ManagedMachinePool.Name
 }
 
-func (m *ManagedMachinePoolScope) Namespace() string {
-	return m.ManagedMachinePool.Namespace
+func (s *ManagedMachinePoolScope) Namespace() string {
+	return s.ManagedMachinePool.Namespace
 }
 
-func (m *ManagedMachinePoolScope) GetRawBootstrapData() ([]byte, error) {
-	if m.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName == nil {
+func (s *ManagedMachinePoolScope) GetRawBootstrapData() ([]byte, error) {
+	if s.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName == nil {
 		return nil, errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
 	}
 
 	secret := &corev1.Secret{}
-	key := types.NamespacedName{Namespace: m.Namespace(), Name: *m.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName}
+	key := types.NamespacedName{Namespace: s.Namespace(), Name: *s.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName}
 
-	if err := m.Client.Get(context.TODO(), key, secret); err != nil {
-		return nil, errors.Wrapf(err, "failed to retrieve bootstrap data secret for AWSManagedMachinePool %s/%s", m.Namespace(), m.Name())
+	if err := s.Client.Get(context.TODO(), key, secret); err != nil {
+		return nil, errors.Wrapf(err, "failed to retrieve bootstrap data secret for AWSManagedMachinePool %s/%s", s.Namespace(), s.Name())
 	}
 
 	value, ok := secret.Data["value"]
@@ -331,10 +331,10 @@ func (m *ManagedMachinePoolScope) GetRawBootstrapData() ([]byte, error) {
 	return value, nil
 }
 
-func (m *ManagedMachinePoolScope) SetLaunchTemplateIDStatus(id string) {
-	m.ManagedMachinePool.Status.LaunchTemplateID = &id
+func (s *ManagedMachinePoolScope) SetLaunchTemplateIDStatus(id string) {
+	s.ManagedMachinePool.Status.LaunchTemplateID = &id
 }
 
-func (m *ManagedMachinePoolScope) SetLaunchTemplateVersionStatus(version string) {
-	m.ManagedMachinePool.Status.LaunchTemplateVersion = &version
+func (s *ManagedMachinePoolScope) SetLaunchTemplateVersionStatus(version string) {
+	s.ManagedMachinePool.Status.LaunchTemplateVersion = &version
 }

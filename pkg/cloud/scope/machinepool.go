@@ -242,7 +242,7 @@ func (m *MachinePoolScope) SetLaunchTemplateIDStatus(id string) {
 
 // IsEKSManaged checks if the AWSMachinePool is EKS managed.
 func (m *MachinePoolScope) IsEKSManaged() bool {
-	return m.InfraCluster.InfraCluster().GetObjectKind().GroupVersionKind().Kind == "AWSManagedControlPlane"
+	return m.InfraCluster.InfraCluster().GetObjectKind().GroupVersionKind().Kind == AWSManagedControlPlaneKind
 }
 
 // SubnetIDs returns the machine pool subnet IDs.
