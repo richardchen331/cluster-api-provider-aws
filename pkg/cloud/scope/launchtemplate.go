@@ -19,18 +19,17 @@ package scope
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"k8s.io/klog/v2/klogr"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/cluster-api/util/conditions"
+	"k8s.io/klog/v2/klogr"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1beta1"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 )
 
 const (
@@ -40,17 +39,16 @@ const (
 // LaunchTemplateScope defines a scope defined around a launch template.
 type LaunchTemplateScope struct {
 	logr.Logger
-	Client      client.Client
+	Client client.Client
 
-	AWSLaunchTemplate *expinfrav1.AWSLaunchTemplate
-	MachinePool       *expclusterv1.MachinePool
+	AWSLaunchTemplate             *expinfrav1.AWSLaunchTemplate
+	MachinePool                   *expclusterv1.MachinePool
 	MachinePoolWithLaunchTemplate MachinePoolWithLaunchTemplate
-	InfraCluster      EC2Scope
-	name              string
-	additionalTags    infrav1.Tags
+	InfraCluster                  EC2Scope
+	name                          string
+	additionalTags                infrav1.Tags
 }
 
-// MMPScope
 type MachinePoolWithLaunchTemplate interface {
 	GetObjectMeta() *metav1.ObjectMeta
 
@@ -62,15 +60,10 @@ type MachinePoolWithLaunchTemplate interface {
 	SetLaunchTemplateIDStatus(id string)
 	GetLaunchTemplateLatestVersionStatus() string
 	SetLaunchTemplateLatestVersionStatus(version string)
-
-	CanUpdateLaunchTemplate() (bool, error)
-	RunPostLaunchTemplateUpdateOperation() error
-
-	GetResourceServicesToUpdate() []ResourceServiceToUpdate
 }
 
 type ResourceServiceToUpdate struct {
-	ResourceId *string
+	ResourceId      *string
 	ResourceService ResourceService
 }
 
@@ -83,12 +76,12 @@ type LaunchTemplateScopeParams struct {
 	Client client.Client
 	Logger *logr.Logger
 
-	AWSLaunchTemplate *expinfrav1.AWSLaunchTemplate
-	MachinePool       *expclusterv1.MachinePool
+	AWSLaunchTemplate             *expinfrav1.AWSLaunchTemplate
+	MachinePool                   *expclusterv1.MachinePool
 	MachinePoolWithLaunchTemplate MachinePoolWithLaunchTemplate
-	InfraCluster      EC2Scope
-	Name              string
-	AdditionalTags    infrav1.Tags
+	InfraCluster                  EC2Scope
+	Name                          string
+	AdditionalTags                infrav1.Tags
 }
 
 // NewLaunchTemplateScope creates a new LaunchTemplateScope from the supplied parameters.
@@ -112,12 +105,12 @@ func NewLaunchTemplateScope(params LaunchTemplateScopeParams) (*LaunchTemplateSc
 		Logger: *params.Logger,
 		Client: params.Client,
 
-		AWSLaunchTemplate: params.AWSLaunchTemplate,
-		MachinePool:       params.MachinePool,
+		AWSLaunchTemplate:             params.AWSLaunchTemplate,
+		MachinePool:                   params.MachinePool,
 		MachinePoolWithLaunchTemplate: params.MachinePoolWithLaunchTemplate,
-		InfraCluster:      params.InfraCluster,
-		name:              params.Name,
-		additionalTags:    params.AdditionalTags,
+		InfraCluster:                  params.InfraCluster,
+		name:                          params.Name,
+		additionalTags:                params.AdditionalTags,
 	}, nil
 }
 

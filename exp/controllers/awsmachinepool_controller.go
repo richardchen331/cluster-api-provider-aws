@@ -207,6 +207,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 	clusterScope.Info("Reconciling AWSMachinePool")
 
 	ec2Svc := r.getEC2Service(ec2Scope)
+	asgsvc := r.getASGService(clusterScope)
 
 	// If the AWSMachine is in an error state, return early.
 	if machinePoolScope.HasFailed() {
@@ -238,7 +239,26 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 		return ctrl.Result{}, nil
 	}
 
-	if err := ec2Svc.ReconcileLaunchTemplate(launchTemplateScope); err != nil {
+	canUpdateLaunchTemplate := func() (bool, error) {
+		// If there is a change: before changing the template, check if there exist an ongoing instance refresh,
+		// because only 1 instance refresh can be "InProgress". If template is updated when refresh cannot be started,
+		// that change will not trigger a refresh. Do not start an instance refresh if only userdata changed.
+		return asgsvc.CanStartASGInstanceRefresh(machinePoolScope)
+	}
+	runPostLaunchTemplateUpdateOperation := func() error {
+		// After creating a new version of launch template, instance refresh is required
+		// to trigger a rolling replacement of all previously launched instances.
+		// If ONLY the userdata changed, previously launched instances continue to use the old launch
+		// template.
+		//
+		// FIXME(dlipovetsky,sedefsavas): If the controller terminates, or the StartASGInstanceRefresh returns an error,
+		// this conditional will not evaluate to true the next reconcile. If any machines use an older
+		// Launch Template version, and the difference between the older and current versions is _more_
+		// than userdata, we should start an Instance Refresh.
+		machinePoolScope.Info("starting instance refresh", "number of instances", machinePoolScope.MachinePool.Spec.Replicas)
+		return asgsvc.StartASGInstanceRefresh(machinePoolScope)
+	}
+	if err := ec2Svc.ReconcileLaunchTemplate(launchTemplateScope, canUpdateLaunchTemplate, runPostLaunchTemplateUpdateOperation); err != nil {
 		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedLaunchTemplateReconcile", "Failed to reconcile launch template: %v", err)
 		machinePoolScope.Error(err, "failed to reconcile launch template")
 		return ctrl.Result{}, err
@@ -246,9 +266,6 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 
 	// set the LaunchTemplateReady condition
 	conditions.MarkTrue(machinePoolScope.AWSMachinePool, expinfrav1.LaunchTemplateReadyCondition)
-
-	// Initialize ASG client
-	asgsvc := r.getASGService(clusterScope)
 
 	// Find existing ASG
 	asg, err := r.findASG(machinePoolScope, asgsvc)
@@ -271,7 +288,19 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 		return ctrl.Result{}, err
 	}
 
-	err = ec2Svc.ReconcileTags(launchTemplateScope)
+	launchTemplateID := launchTemplateScope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus()
+	asgName := launchTemplateScope.Name()
+	resourceServiceToUpdate := []scope.ResourceServiceToUpdate{
+		{
+			ResourceId: &launchTemplateID,
+			ResourceService: ec2svc,
+		},
+		{
+			ResourceId: &asgName,
+			ResourceService: asgsvc,
+		},
+	}
+	err = ec2Svc.ReconcileTags(launchTemplateScope, resourceServiceToUpdate)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "error updating tags")
 	}

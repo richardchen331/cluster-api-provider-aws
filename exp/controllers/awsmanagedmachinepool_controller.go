@@ -225,13 +225,24 @@ func (r *AWSManagedMachinePoolReconciler) reconcileNormal(
 	ec2svc := r.getEC2Service(ec2Scope)
 
 	if machinePoolScope.ManagedMachinePool.Spec.AWSLaunchTemplate != nil {
-		if err := ec2svc.ReconcileLaunchTemplate(launchTemplateScope); err != nil {
+		canUpdateLaunchTemplate := func() (bool, error) {
+			return true, nil
+		}
+		runPostLaunchTemplateUpdateOperation := func() error {
+			return nil
+		}
+		if err := ec2svc.ReconcileLaunchTemplate(launchTemplateScope, canUpdateLaunchTemplate, runPostLaunchTemplateUpdateOperation); err != nil {
 			r.Recorder.Eventf(machinePoolScope.ManagedMachinePool, corev1.EventTypeWarning, "FailedLaunchTemplateReconcile", "Failed to reconcile launch template: %v", err)
 			machinePoolScope.Error(err, "failed to reconcile launch template")
 			return ctrl.Result{}, err
 		}
 
-		if err := ec2svc.ReconcileTags(launchTemplateScope); err != nil {
+		launchTemplateID := launchTemplateScope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus()
+		resourceServiceToUpdate := []scope.ResourceServiceToUpdate{{
+			ResourceId: &launchTemplateID,
+			ResourceService: ec2svc,
+		}}
+		if err := ec2svc.ReconcileTags(launchTemplateScope, resourceServiceToUpdate); err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "error updating tags")
 		}
 

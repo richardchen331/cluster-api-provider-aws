@@ -51,7 +51,11 @@ const (
 	TagsLastAppliedAnnotation = "sigs.k8s.io/cluster-api-provider-aws-last-applied-tags"
 )
 
-func (s *Service) ReconcileLaunchTemplate(scope *scope.LaunchTemplateScope) error {
+func (s *Service) ReconcileLaunchTemplate(
+	scope *scope.LaunchTemplateScope,
+	canUpdateLaunchTemplate func() (bool, error),
+	runPostLaunchTemplateUpdateOperation func() error,
+	) error {
 	bootstrapData, err := scope.GetRawBootstrapData()
 	if err != nil {
 		record.Eventf(scope.MachinePool, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
@@ -121,7 +125,7 @@ func (s *Service) ReconcileLaunchTemplate(scope *scope.LaunchTemplateScope) erro
 	}
 
 	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
-		canUpdate, err := scope.MachinePoolWithLaunchTemplate.CanUpdateLaunchTemplate()
+		canUpdate, err := canUpdateLaunchTemplate()
 		if err != nil {
 			return err
 		}
@@ -153,7 +157,7 @@ func (s *Service) ReconcileLaunchTemplate(scope *scope.LaunchTemplateScope) erro
 	}
 
 	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
-		if err := scope.MachinePoolWithLaunchTemplate.RunPostLaunchTemplateUpdateOperation(); err != nil {
+		if err := runPostLaunchTemplateUpdateOperation(); err != nil {
 			conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.PostLaunchTemplateUpdateOperationCondition, expinfrav1.PostLaunchTemplateUpdateOperationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return err
 		}
@@ -163,10 +167,10 @@ func (s *Service) ReconcileLaunchTemplate(scope *scope.LaunchTemplateScope) erro
 	return nil
 }
 
-func (s *Service) ReconcileTags(scope *scope.LaunchTemplateScope) error {
+func (s *Service) ReconcileTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []ResourceServiceToUpdate) error {
 	additionalTags := scope.AdditionalTags()
 
-	tagsChanged, err := s.ensureTags(scope, additionalTags)
+	tagsChanged, err := s.ensureTags(scope, resourceServicesToUpdate, additionalTags)
 	if err != nil {
 		return err
 	}
@@ -176,7 +180,7 @@ func (s *Service) ReconcileTags(scope *scope.LaunchTemplateScope) error {
 	return nil
 }
 
-func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, additionalTags map[string]string) (bool, error) {
+func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []ResourceServiceToUpdate, additionalTags map[string]string) (bool, error) {
 	annotation, err := scope.MachinePoolAnnotationJSON(TagsLastAppliedAnnotation)
 	if err != nil {
 		return false, err
@@ -188,7 +192,7 @@ func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, additionalTags ma
 	// upated.
 	changed, created, deleted, newAnnotation := tagsChanged(annotation, additionalTags)
 	if changed {
-		for _, resourceServiceToUpdate := range scope.MachinePoolWithLaunchTemplate.GetResourceServicesToUpdate() {
+		for _, resourceServiceToUpdate := range resourceServicesToUpdate {
 			err := resourceServiceToUpdate.ResourceService.UpdateResourceTags(resourceServiceToUpdate.ResourceId, created, deleted)
 			if err != nil {
 				return false, err

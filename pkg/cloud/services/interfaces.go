@@ -59,8 +59,8 @@ type EC2Interface interface {
 	TerminateInstanceAndWait(instanceID string) error
 	DetachSecurityGroupsFromNetworkInterface(groups []string, interfaceID string) error
 
-	ReconcileLaunchTemplate(scope *scope.LaunchTemplateScope) error
-	ReconcileTags(scope *scope.LaunchTemplateScope) error
+	ReconcileLaunchTemplate(scope *scope.LaunchTemplateScope, canUpdateLaunchTemplate func() (bool, error), runPostLaunchTemplateUpdateOperation func() error) error
+	ReconcileTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []scope.ResourceServiceToUpdate) error
 
 	DiscoverLaunchTemplateAMI(scope *scope.LaunchTemplateScope) (*string, error)
 	GetLaunchTemplate(id string) (lt *expinfrav1.AWSLaunchTemplate, userDataHash string, err error)

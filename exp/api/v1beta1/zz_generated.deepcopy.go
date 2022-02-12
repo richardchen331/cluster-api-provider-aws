@@ -272,6 +272,11 @@ func (in *AWSMachinePoolStatus) DeepCopyInto(out *AWSMachinePoolStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.LaunchTemplateVersion != nil {
+		in, out := &in.LaunchTemplateVersion, &out.LaunchTemplateVersion
+		*out = new(string)
+		**out = **in
+	}
 	if in.FailureReason != nil {
 		in, out := &in.FailureReason, &out.FailureReason
 		*out = new(errors.MachineStatusError)

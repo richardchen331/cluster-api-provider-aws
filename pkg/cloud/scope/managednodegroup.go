@@ -19,15 +19,14 @@ package scope
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2/klogr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
@@ -56,7 +55,7 @@ type ManagedMachinePoolScopeParams struct {
 	EnableIAM            bool
 	AllowAdditionalRoles bool
 
-	InfraCluster        EC2Scope
+	InfraCluster EC2Scope
 }
 
 // NewManagedMachinePoolScope creates a new Scope from the supplied parameters.
@@ -348,21 +347,4 @@ func (s *ManagedMachinePoolScope) GetLaunchTemplateLatestVersionStatus() string 
 
 func (s *ManagedMachinePoolScope) SetLaunchTemplateLatestVersionStatus(version string) {
 	s.ManagedMachinePool.Status.LaunchTemplateVersion = &version
-}
-
-func (s *ManagedMachinePoolScope) CanUpdateLaunchTemplate() (bool, error) {
-	return true, nil
-}
-
-func (s *ManagedMachinePoolScope) RunPostLaunchTemplateUpdateOperation() error {
-	return nil
-}
-
-func (s *ManagedMachinePoolScope) GetResourceServicesToUpdate() []ResourceServiceToUpdate {
-	ec2Svc := ec2.NewService(s.EC2Scope)
-	launchTemplateID := s.GetLaunchTemplateIDStatus()
-	return []ResourceServiceToUpdate{{
-		ResourceId: &launchTemplateID,
-		ResourceService: ec2Svc,
-	}}
 }
