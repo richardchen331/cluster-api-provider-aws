@@ -105,6 +105,7 @@ type AWSManagedMachinePoolSpec struct {
 
 	// AMIType defines the AMI type
 	// +kubebuilder:validation:Enum:=AL2_x86_64;AL2_x86_64_GPU;AL2_ARM_64
+	// +kubebuilder:default:=AL2_x86_64
 	// +optional
 	AMIType *ManagedMachineAMIType `json:"amiType,omitempty"`
 
@@ -149,6 +150,9 @@ type AWSManagedMachinePoolSpec struct {
 	// +optional
 	UpdateConfig *UpdateConfig `json:"updateConfig,omitempty"`
 
+	// AWSLaunchTemplate specifies the launch template to use to create the managed node group.
+	// If AWSLaunchTemplate is specified, certain node group configuraions outside of launch template
+	// are prohibited (https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html).
 	// +optional
 	AWSLaunchTemplate *AWSLaunchTemplate `json:"awsLaunchTemplate,omitempty"`
 }

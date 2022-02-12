@@ -83,7 +83,7 @@ func (mr *MockEC2InterfaceMockRecorder) CreateLaunchTemplate(arg0, arg1, arg2 in
 }
 
 // CreateLaunchTemplateVersion mocks base method.
-func (m *MockEC2MachineInterface) CreateLaunchTemplateVersion(arg0 *string, arg1 *scope.LaunchTemplateScope, arg2 *string, arg3 []byte) error {
+func (m *MockEC2MachineInterface) CreateLaunchTemplateVersion(arg0 string, arg1 *scope.LaunchTemplateScope, arg2 *string, arg3 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateLaunchTemplateVersion", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -315,6 +315,34 @@ func (m *MockEC2Interface) ReconcileBastion() error {
 func (mr *MockEC2InterfaceMockRecorder) ReconcileBastion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileBastion", reflect.TypeOf((*MockEC2Interface)(nil).ReconcileBastion))
+}
+
+// ReconcileLaunchTemplate mocks base method.
+func (m *MockEC2MachineInterface) ReconcileLaunchTemplate(arg0 *scope.LaunchTemplateScope, arg1 func() (bool, error), arg2 func() error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReconcileLaunchTemplate", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReconcileLaunchTemplate indicates an expected call of ReconcileLaunchTemplate.
+func (mr *MockEC2MachineInterfaceMockRecorder) ReconcileLaunchTemplate(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileLaunchTemplate", reflect.TypeOf((*MockEC2MachineInterface)(nil).ReconcileLaunchTemplate), arg0, arg1, arg2)
+}
+
+// ReconcileTags mocks base method.
+func (m *MockEC2MachineInterface) ReconcileTags(arg0 *scope.LaunchTemplateScope, arg1 []scope.ResourceServiceToUpdate) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReconcileTags", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReconcileTags indicates an expected call of ReconcileTags.
+func (mr *MockEC2MachineInterfaceMockRecorder) ReconcileTags(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileTags", reflect.TypeOf((*MockEC2MachineInterface)(nil).ReconcileTags), arg0, arg1)
 }
 
 // TerminateInstance mocks base method.
