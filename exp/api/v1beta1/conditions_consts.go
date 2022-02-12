@@ -42,7 +42,7 @@ const (
 
 	// PreLaunchTemplateUpdateCheckFailedReason used to report when not all prerequisite are met for launch template update.
 	PreLaunchTemplateUpdateCheckFailedReason = "PreLaunchTemplateUpdateCheckFailed"
-	// PostLaunchTemplateUpdateOperationFailed used to report when post launch template update operation failed.
+	// PostLaunchTemplateUpdateOperationFailedReason used to report when post launch template update operation failed.
 	PostLaunchTemplateUpdateOperationFailedReason = "PostLaunchTemplateUpdateOperationFailed"
 
 	// InstanceRefreshStartedCondition reports on successfully starting instance refresh.

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"reflect"
-	"sigs.k8s.io/cluster-api/util/conditions"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/conditions"
 )
 
 const (
@@ -55,7 +56,7 @@ func (s *Service) ReconcileLaunchTemplate(
 	scope *scope.LaunchTemplateScope,
 	canUpdateLaunchTemplate func() (bool, error),
 	runPostLaunchTemplateUpdateOperation func() error,
-	) error {
+) error {
 	bootstrapData, err := scope.GetRawBootstrapData()
 	if err != nil {
 		record.Eventf(scope.MachinePool, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
@@ -167,7 +168,7 @@ func (s *Service) ReconcileLaunchTemplate(
 	return nil
 }
 
-func (s *Service) ReconcileTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []ResourceServiceToUpdate) error {
+func (s *Service) ReconcileTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []scope.ResourceServiceToUpdate) error {
 	additionalTags := scope.AdditionalTags()
 
 	tagsChanged, err := s.ensureTags(scope, resourceServicesToUpdate, additionalTags)
@@ -180,7 +181,7 @@ func (s *Service) ReconcileTags(scope *scope.LaunchTemplateScope, resourceServic
 	return nil
 }
 
-func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []ResourceServiceToUpdate, additionalTags map[string]string) (bool, error) {
+func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []scope.ResourceServiceToUpdate, additionalTags map[string]string) (bool, error) {
 	annotation, err := scope.MachinePoolAnnotationJSON(TagsLastAppliedAnnotation)
 	if err != nil {
 		return false, err
@@ -193,7 +194,7 @@ func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, resourceServicesT
 	changed, created, deleted, newAnnotation := tagsChanged(annotation, additionalTags)
 	if changed {
 		for _, resourceServiceToUpdate := range resourceServicesToUpdate {
-			err := resourceServiceToUpdate.ResourceService.UpdateResourceTags(resourceServiceToUpdate.ResourceId, created, deleted)
+			err := resourceServiceToUpdate.ResourceService.UpdateResourceTags(resourceServiceToUpdate.ResourceID, created, deleted)
 			if err != nil {
 				return false, err
 			}

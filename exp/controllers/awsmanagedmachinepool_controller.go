@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -43,7 +42,6 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/eks"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -202,7 +200,7 @@ func (r *AWSManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 	}()
 
 	if !awsPool.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, machinePoolScope, managedControlPlaneScope)
+		return r.reconcileDelete(ctx, machinePoolScope, launchTemplateScope, managedControlPlaneScope)
 	}
 
 	return r.reconcileNormal(ctx, machinePoolScope, launchTemplateScope, managedControlPlaneScope)
@@ -239,7 +237,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileNormal(
 
 		launchTemplateID := launchTemplateScope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus()
 		resourceServiceToUpdate := []scope.ResourceServiceToUpdate{{
-			ResourceId: &launchTemplateID,
+			ResourceID: &launchTemplateID,
 			ResourceService: ec2svc,
 		}}
 		if err := ec2svc.ReconcileTags(launchTemplateScope, resourceServiceToUpdate); err != nil {
@@ -260,6 +258,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileNormal(
 func (r *AWSManagedMachinePoolReconciler) reconcileDelete(
 	_ context.Context,
 	machinePoolScope *scope.ManagedMachinePoolScope,
+	launchTemplateScope *scope.LaunchTemplateScope,
 	ec2Scope scope.EC2Scope,
 ) (ctrl.Result, error) {
 	machinePoolScope.Info("Reconciling deletion of AWSManagedMachinePool")
@@ -273,7 +272,7 @@ func (r *AWSManagedMachinePoolReconciler) reconcileDelete(
 
 	if machinePoolScope.ManagedMachinePool.Spec.AWSLaunchTemplate != nil {
 		launchTemplateID := machinePoolScope.ManagedMachinePool.Status.LaunchTemplateID
-		launchTemplate, _, err := ec2Svc.GetLaunchTemplate(machinePoolScope.LaunchTemplateScope.Name())
+		launchTemplate, _, err := ec2Svc.GetLaunchTemplate(launchTemplateScope.Name())
 		if err != nil {
 			return ctrl.Result{}, err
 		}

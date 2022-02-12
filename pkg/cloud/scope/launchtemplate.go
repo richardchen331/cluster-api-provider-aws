@@ -26,6 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2/klogr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
 	expinfrav1 "sigs.k8s.io/cluster-api-provider-aws/exp/api/v1beta1"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
@@ -33,6 +35,7 @@ import (
 )
 
 const (
+	// AWSManagedControlPlaneKind is the Kind of AWSManagedControlPlane.
 	AWSManagedControlPlaneKind = "AWSManagedControlPlane"
 )
 
@@ -63,7 +66,7 @@ type MachinePoolWithLaunchTemplate interface {
 }
 
 type ResourceServiceToUpdate struct {
-	ResourceId      *string
+	ResourceID      *string
 	ResourceService ResourceService
 }
 
@@ -151,7 +154,6 @@ func (m *LaunchTemplateScope) GetRawBootstrapData() ([]byte, error) {
 	}
 
 	return value, nil
-	return nil, nil
 }
 
 func (m *LaunchTemplateScope) MachinePoolAnnotationJSON(annotation string) (map[string]interface{}, error) {

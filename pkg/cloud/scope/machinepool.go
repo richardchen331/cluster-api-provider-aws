@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"sigs.k8s.io/cluster-api/util/conditions"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"

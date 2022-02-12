@@ -292,11 +292,11 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 	asgName := launchTemplateScope.Name()
 	resourceServiceToUpdate := []scope.ResourceServiceToUpdate{
 		{
-			ResourceId: &launchTemplateID,
-			ResourceService: ec2svc,
+			ResourceID: &launchTemplateID,
+			ResourceService: ec2Svc,
 		},
 		{
-			ResourceId: &asgName,
+			ResourceID: &asgName,
 			ResourceService: asgsvc,
 		},
 	}
