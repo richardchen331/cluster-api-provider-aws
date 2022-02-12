@@ -19,6 +19,7 @@ package scope
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/go-logr/logr"
@@ -26,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2/klogr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
@@ -54,7 +56,6 @@ type ManagedMachinePoolScopeParams struct {
 	EnableIAM            bool
 	AllowAdditionalRoles bool
 
-	LaunchTemplateScope LaunchTemplateScope
 	InfraCluster        EC2Scope
 }
 
@@ -92,19 +93,6 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
 
-	LaunchTemplateScope, err := NewLaunchTemplateScope(LaunchTemplateScopeParams{
-		Logger: params.Logger,
-
-		AWSLaunchTemplate: params.ManagedMachinePool.Spec.AWSLaunchTemplate,
-		MachinePool:       params.MachinePool,
-		InfraCluster:      params.InfraCluster,
-		name:              fmt.Sprintf("%s-%s", params.ControlPlane.Name, params.ManagedMachinePool.Name),
-		additionalTags:    params.ManagedMachinePool.Spec.AdditionalTags,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting launch template scope")
-	}
-
 	return &ManagedMachinePoolScope{
 		Logger:               *params.Logger,
 		Client:               params.Client,
@@ -112,13 +100,13 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 		ControlPlane:         params.ControlPlane,
 		ManagedMachinePool:   params.ManagedMachinePool,
 		MachinePool:          params.MachinePool,
+		EC2Scope:             params.InfraCluster,
 		patchHelper:          helper,
 		session:              session,
 		serviceLimiters:      serviceLimiters,
 		controllerName:       params.ControllerName,
 		enableIAM:            params.EnableIAM,
 		allowAdditionalRoles: params.AllowAdditionalRoles,
-		LaunchTemplateScope:  LaunchTemplateScope,
 	}, nil
 }
 
@@ -132,6 +120,7 @@ type ManagedMachinePoolScope struct {
 	ControlPlane       *ekscontrolplanev1.AWSManagedControlPlane
 	ManagedMachinePool *expinfrav1.AWSManagedMachinePool
 	MachinePool        *expclusterv1.MachinePool
+	EC2Scope           EC2Scope
 
 	session         awsclient.ConfigProvider
 	serviceLimiters throttle.ServiceLimiters
@@ -139,8 +128,6 @@ type ManagedMachinePoolScope struct {
 
 	enableIAM            bool
 	allowAdditionalRoles bool
-
-	LaunchTemplateScope *LaunchTemplateScope
 }
 
 // ManagedPoolName returns the managed machine pool name.
@@ -331,10 +318,51 @@ func (s *ManagedMachinePoolScope) GetRawBootstrapData() ([]byte, error) {
 	return value, nil
 }
 
+func (s *ManagedMachinePoolScope) GetObjectMeta() *metav1.ObjectMeta {
+	return &s.ManagedMachinePool.ObjectMeta
+}
+
+func (s *ManagedMachinePoolScope) GetSetter() conditions.Setter {
+	return s.ManagedMachinePool
+}
+
+func (s *ManagedMachinePoolScope) GetLaunchTemplateIDStatus() string {
+	if s.ManagedMachinePool.Status.LaunchTemplateID != nil {
+		return *s.ManagedMachinePool.Status.LaunchTemplateID
+	} else {
+		return ""
+	}
+}
+
 func (s *ManagedMachinePoolScope) SetLaunchTemplateIDStatus(id string) {
 	s.ManagedMachinePool.Status.LaunchTemplateID = &id
 }
 
-func (s *ManagedMachinePoolScope) SetLaunchTemplateVersionStatus(version string) {
+func (s *ManagedMachinePoolScope) GetLaunchTemplateLatestVersionStatus() string {
+	if s.ManagedMachinePool.Status.LaunchTemplateVersion != nil {
+		return *s.ManagedMachinePool.Status.LaunchTemplateVersion
+	} else {
+		return ""
+	}
+}
+
+func (s *ManagedMachinePoolScope) SetLaunchTemplateLatestVersionStatus(version string) {
 	s.ManagedMachinePool.Status.LaunchTemplateVersion = &version
+}
+
+func (s *ManagedMachinePoolScope) CanUpdateLaunchTemplate() (bool, error) {
+	return true, nil
+}
+
+func (s *ManagedMachinePoolScope) RunPostLaunchTemplateUpdateOperation() error {
+	return nil
+}
+
+func (s *ManagedMachinePoolScope) GetResourceServicesToUpdate() []ResourceServiceToUpdate {
+	ec2Svc := ec2.NewService(s.EC2Scope)
+	launchTemplateID := s.GetLaunchTemplateIDStatus()
+	return []ResourceServiceToUpdate{{
+		ResourceId: &launchTemplateID,
+		ResourceService: ec2Svc,
+	}}
 }

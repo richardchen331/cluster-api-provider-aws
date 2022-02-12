@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services"
 	asg "sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/autoscaling"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
-	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	expclusterv1 "sigs.k8s.io/cluster-api/exp/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
@@ -140,6 +139,21 @@ func (r *AWSMachinePoolReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	// Create the launch template scope
+	launchTemplateScope, err := scope.NewLaunchTemplateScope(scope.LaunchTemplateScopeParams{
+		Client:            r.Client,
+		AWSLaunchTemplate: &awsMachinePool.Spec.AWSLaunchTemplate,
+		MachinePool:       machinePool,
+		InfraCluster:      infraCluster,
+		MachinePoolWithLaunchTemplate: machinePoolScope,
+		Name:              awsMachinePool.Name,
+		AdditionalTags:    awsMachinePool.Spec.AdditionalTags,
+	})
+	if err != nil {
+		log.Error(err, "failed to create scope")
+		return ctrl.Result{}, err
+	}
+
 	// Always close the scope when exiting this function so we can persist any AWSMachine changes.
 	defer func() {
 		// set Ready condition before AWSMachinePool is patched
@@ -165,13 +179,13 @@ func (r *AWSMachinePoolReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return r.reconcileDelete(machinePoolScope, infraScope, infraScope)
 		}
 
-		return r.reconcileNormal(ctx, machinePoolScope, infraScope, infraScope)
+		return r.reconcileNormal(ctx, machinePoolScope, launchTemplateScope, infraScope, infraScope)
 	case *scope.ClusterScope:
 		if !awsMachinePool.ObjectMeta.DeletionTimestamp.IsZero() {
 			return r.reconcileDelete(machinePoolScope, infraScope, infraScope)
 		}
 
-		return r.reconcileNormal(ctx, machinePoolScope, infraScope, infraScope)
+		return r.reconcileNormal(ctx, machinePoolScope, launchTemplateScope, infraScope, infraScope)
 	default:
 		return ctrl.Result{}, errors.New("infraCluster has unknown type")
 	}
@@ -189,8 +203,10 @@ func (r *AWSMachinePoolReconciler) SetupWithManager(ctx context.Context, mgr ctr
 		Complete(r)
 }
 
-func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machinePoolScope *scope.MachinePoolScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope) (ctrl.Result, error) {
+func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machinePoolScope *scope.MachinePoolScope, launchTemplateScope *scope.LaunchTemplateScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope) (ctrl.Result, error) {
 	clusterScope.Info("Reconciling AWSMachinePool")
+
+	ec2Svc := r.getEC2Service(ec2Scope)
 
 	// If the AWSMachine is in an error state, return early.
 	if machinePoolScope.HasFailed() {
@@ -222,7 +238,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.reconcileLaunchTemplate(machinePoolScope, ec2Scope); err != nil {
+	if err := ec2Svc.ReconcileLaunchTemplate(launchTemplateScope); err != nil {
 		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedLaunchTemplateReconcile", "Failed to reconcile launch template: %v", err)
 		machinePoolScope.Error(err, "failed to reconcile launch template")
 		return ctrl.Result{}, err
@@ -255,7 +271,7 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 		return ctrl.Result{}, err
 	}
 
-	err = r.reconcileTags(machinePoolScope, clusterScope, ec2Scope)
+	err = ec2Svc.ReconcileTags(launchTemplateScope)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "error updating tags")
 	}
@@ -378,134 +394,6 @@ func (r *AWSMachinePoolReconciler) findASG(machinePoolScope *scope.MachinePoolSc
 	}
 
 	return asg, nil
-}
-
-func (r *AWSMachinePoolReconciler) reconcileLaunchTemplate(machinePoolScope *scope.MachinePoolScope, ec2Scope scope.EC2Scope) error {
-	bootstrapData, err := machinePoolScope.GetRawBootstrapData()
-	if err != nil {
-		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
-	}
-	bootstrapDataHash := userdata.ComputeHash(bootstrapData)
-
-	ec2svc := r.getEC2Service(ec2Scope)
-
-	machinePoolScope.Info("checking for existing launch template")
-	launchTemplate, launchTemplateUserDataHash, err := ec2svc.GetLaunchTemplate(machinePoolScope.Name())
-	if err != nil {
-		conditions.MarkUnknown(machinePoolScope.AWSMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
-		return err
-	}
-
-	imageID, err := ec2svc.DiscoverLaunchTemplateAMI(machinePoolScope.LaunchTemplateScope)
-	if err != nil {
-		conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return err
-	}
-
-	if launchTemplate == nil {
-		machinePoolScope.Info("no existing launch template found, creating")
-		launchTemplateID, err := ec2svc.CreateLaunchTemplate(machinePoolScope.LaunchTemplateScope, imageID, bootstrapData)
-		if err != nil {
-			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
-			return err
-		}
-
-		machinePoolScope.SetLaunchTemplateIDStatus(launchTemplateID)
-		return machinePoolScope.PatchObject()
-	}
-
-	// LaunchTemplateID is set during LaunchTemplate creation, but for a scenario such as `clusterctl move`, status fields become blank.
-	// If launchTemplate already exists but LaunchTemplateID field in the status is empty, get the ID and update the status.
-	if machinePoolScope.AWSMachinePool.Status.LaunchTemplateID == "" {
-		launchTemplateID, err := ec2svc.GetLaunchTemplateID(machinePoolScope.Name())
-		if err != nil {
-			conditions.MarkUnknown(machinePoolScope.AWSMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
-			return err
-		}
-		machinePoolScope.SetLaunchTemplateIDStatus(launchTemplateID)
-		return machinePoolScope.PatchObject()
-	}
-
-	annotation, err := r.machinePoolAnnotationJSON(machinePoolScope.AWSMachinePool, TagsLastAppliedAnnotation)
-	if err != nil {
-		return err
-	}
-
-	// Check if the instance tags were changed. If they were, create a new LaunchTemplate.
-	tagsChanged, _, _, _ := tagsChanged(annotation, machinePoolScope.AdditionalTags()) // nolint:dogsled
-
-	needsUpdate, err := ec2svc.LaunchTemplateNeedsUpdate(machinePoolScope.LaunchTemplateScope, &machinePoolScope.AWSMachinePool.Spec.AWSLaunchTemplate, launchTemplate)
-	if err != nil {
-		return err
-	}
-
-	// If there is a change: before changing the template, check if there exist an ongoing instance refresh,
-	// because only 1 instance refresh can be "InProgress". If template is updated when refresh cannot be started,
-	// that change will not trigger a refresh. Do not start an instance refresh if only userdata changed.
-	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
-		asgSvc := r.getASGService(ec2Scope)
-		canStart, err := asgSvc.CanStartASGInstanceRefresh(machinePoolScope)
-		if err != nil {
-			return err
-		}
-		if !canStart {
-			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition, expinfrav1.InstanceRefreshNotReadyReason, clusterv1.ConditionSeverityWarning, "")
-			return errors.New("Cannot start a new instance refresh. Unfinished instance refresh exist")
-		}
-	}
-
-	// Create a new launch template version if there's a difference in configuration, tags,
-	// userdata, OR we've discovered a new AMI ID.
-	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID || launchTemplateUserDataHash != bootstrapDataHash {
-		machinePoolScope.Info("creating new version for launch template", "existing", launchTemplate, "incoming", machinePoolScope.AWSMachinePool.Spec.AWSLaunchTemplate)
-		// There is a limit to the number of Launch Template Versions.
-		// We ensure that the number of versions does not grow without bound by following a simple rule: Before we create a new version, we delete one old version, if there is at least one old version that is not in use.
-		if err := ec2svc.PruneLaunchTemplateVersions(machinePoolScope.AWSMachinePool.Status.LaunchTemplateID); err != nil {
-			return err
-		}
-		if err := ec2svc.CreateLaunchTemplateVersion(&machinePoolScope.AWSMachinePool.Status.LaunchTemplateID, machinePoolScope.LaunchTemplateScope, imageID, bootstrapData); err != nil {
-			return err
-		}
-	}
-
-	// After creating a new version of launch template, instance refresh is required
-	// to trigger a rolling replacement of all previously launched instances.
-	// If ONLY the userdata changed, previously launched instances continue to use the old launch
-	// template.
-	//
-	// FIXME(dlipovetsky,sedefsavas): If the controller terminates, or the StartASGInstanceRefresh returns an error,
-	// this conditional will not evaluate to true the next reconcile. If any machines use an older
-	// Launch Template version, and the difference between the older and current versions is _more_
-	// than userdata, we should start an Instance Refresh.
-	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
-		machinePoolScope.Info("starting instance refresh", "number of instances", machinePoolScope.MachinePool.Spec.Replicas)
-		asgSvc := r.getASGService(ec2Scope)
-		if err := asgSvc.StartASGInstanceRefresh(machinePoolScope); err != nil {
-			conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition, expinfrav1.InstanceRefreshFailedReason, clusterv1.ConditionSeverityError, err.Error())
-			return err
-		}
-		conditions.MarkTrue(machinePoolScope.AWSMachinePool, expinfrav1.InstanceRefreshStartedCondition)
-	}
-
-	return nil
-}
-
-func (r *AWSMachinePoolReconciler) reconcileTags(machinePoolScope *scope.MachinePoolScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope) error {
-	ec2Svc := r.getEC2Service(ec2Scope)
-	asgSvc := r.getASGService(clusterScope)
-
-	launchTemplateID := machinePoolScope.AWSMachinePool.Status.LaunchTemplateID
-	asgName := machinePoolScope.Name()
-	additionalTags := machinePoolScope.AdditionalTags()
-
-	tagsChanged, err := r.ensureTags(ec2Svc, asgSvc, machinePoolScope.AWSMachinePool, &launchTemplateID, &asgName, additionalTags)
-	if err != nil {
-		return err
-	}
-	if tagsChanged {
-		r.Recorder.Eventf(machinePoolScope.AWSMachinePool, corev1.EventTypeNormal, "UpdatedTags", "updated tags on resources")
-	}
-	return nil
 }
 
 // asgNeedsUpdates compares incoming AWSMachinePool and compares against existing ASG.

@@ -19,6 +19,9 @@ package ec2
 import (
 	"encoding/base64"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	"reflect"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,7 +37,240 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/awserrors"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/record"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
+
+const (
+	// TagsLastAppliedAnnotation is the key for the AWSMachinePool object annotation
+	// which tracks the tags that the AWSMachinePool actuator is responsible
+	// for. These are the tags that have been handled by the
+	// AdditionalTags in the AWSMachinePool Provider Config.
+	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+	// for annotation formatting rules.
+	TagsLastAppliedAnnotation = "sigs.k8s.io/cluster-api-provider-aws-last-applied-tags"
+)
+
+func (s *Service) ReconcileLaunchTemplate(scope *scope.LaunchTemplateScope) error {
+	bootstrapData, err := scope.GetRawBootstrapData()
+	if err != nil {
+		record.Eventf(scope.MachinePool, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
+	}
+	bootstrapDataHash := userdata.ComputeHash(bootstrapData)
+
+	ec2svc := NewService(scope.InfraCluster)
+
+	scope.Info("checking for existing launch template")
+	launchTemplate, launchTemplateUserDataHash, err := ec2svc.GetLaunchTemplate(scope.Name())
+	if err != nil {
+		conditions.MarkUnknown(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
+		return err
+	}
+
+	imageID, err := ec2svc.DiscoverLaunchTemplateAMI(scope)
+	if err != nil {
+		conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		return err
+	}
+
+	if launchTemplate == nil {
+		scope.Info("no existing launch template found, creating")
+		launchTemplateID, err := ec2svc.CreateLaunchTemplate(scope, imageID, bootstrapData)
+		if err != nil {
+			conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
+			return err
+		}
+
+		scope.MachinePoolWithLaunchTemplate.SetLaunchTemplateIDStatus(launchTemplateID)
+		return scope.MachinePoolWithLaunchTemplate.PatchObject()
+	}
+
+	// LaunchTemplateID is set during LaunchTemplate creation, but for a scenario such as `clusterctl move`, status fields become blank.
+	// If launchTemplate already exists but LaunchTemplateID field in the status is empty, get the ID and update the status.
+	if scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus() == "" {
+		launchTemplateID, err := ec2svc.GetLaunchTemplateID(scope.Name())
+		if err != nil {
+			conditions.MarkUnknown(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
+			return err
+		}
+		scope.MachinePoolWithLaunchTemplate.SetLaunchTemplateIDStatus(launchTemplateID)
+		return scope.MachinePoolWithLaunchTemplate.PatchObject()
+	}
+
+	if scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateLatestVersionStatus() == "" {
+		launchTemplateVersion, err := ec2svc.GetLaunchTemplateLatestVersion(scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus())
+		if err != nil {
+			conditions.MarkUnknown(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
+			return err
+		}
+		scope.MachinePoolWithLaunchTemplate.SetLaunchTemplateLatestVersionStatus(launchTemplateVersion)
+		return scope.MachinePoolWithLaunchTemplate.PatchObject()
+	}
+
+	annotation, err := scope.MachinePoolAnnotationJSON(TagsLastAppliedAnnotation)
+	if err != nil {
+		return err
+	}
+
+	// Check if the instance tags were changed. If they were, create a new LaunchTemplate.
+	tagsChanged, _, _, _ := tagsChanged(annotation, scope.AdditionalTags()) // nolint:dogsled
+
+	needsUpdate, err := ec2svc.LaunchTemplateNeedsUpdate(scope, scope.AWSLaunchTemplate, launchTemplate)
+	if err != nil {
+		return err
+	}
+
+	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
+		canUpdate, err := scope.MachinePoolWithLaunchTemplate.CanUpdateLaunchTemplate()
+		if err != nil {
+			return err
+		}
+		if !canUpdate {
+			conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.PreLaunchTemplateUpdateCheckCondition, expinfrav1.PreLaunchTemplateUpdateCheckFailedReason, clusterv1.ConditionSeverityWarning, "")
+			return errors.New("Cannot update the launch template, prerequisite not met")
+		}
+	}
+
+	// Create a new launch template version if there's a difference in configuration, tags,
+	// userdata, OR we've discovered a new AMI ID.
+	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID || launchTemplateUserDataHash != bootstrapDataHash {
+		scope.Info("creating new version for launch template", "existing", launchTemplate, "incoming", scope.AWSLaunchTemplate)
+		// There is a limit to the number of Launch Template Versions.
+		// We ensure that the number of versions does not grow without bound by following a simple rule: Before we create a new version, we delete one old version, if there is at least one old version that is not in use.
+		if err := ec2svc.PruneLaunchTemplateVersions(scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus()); err != nil {
+			return err
+		}
+		if err := ec2svc.CreateLaunchTemplateVersion(scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus(), scope, imageID, bootstrapData); err != nil {
+			return err
+		}
+		version, err := ec2svc.GetLaunchTemplateLatestVersion(scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus())
+		if err != nil {
+			return err
+		}
+
+		scope.MachinePoolWithLaunchTemplate.SetLaunchTemplateLatestVersionStatus(version)
+		return scope.MachinePoolWithLaunchTemplate.PatchObject()
+	}
+
+	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
+		if err := scope.MachinePoolWithLaunchTemplate.RunPostLaunchTemplateUpdateOperation(); err != nil {
+			conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.PostLaunchTemplateUpdateOperationCondition, expinfrav1.PostLaunchTemplateUpdateOperationFailedReason, clusterv1.ConditionSeverityError, err.Error())
+			return err
+		}
+		conditions.MarkTrue(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.PostLaunchTemplateUpdateOperationCondition)
+	}
+
+	return nil
+}
+
+func (s *Service) ReconcileTags(scope *scope.LaunchTemplateScope) error {
+	additionalTags := scope.AdditionalTags()
+
+	tagsChanged, err := s.ensureTags(scope, additionalTags)
+	if err != nil {
+		return err
+	}
+	if tagsChanged {
+		record.Eventf(scope.MachinePool, corev1.EventTypeNormal, "UpdatedTags", "updated tags on resources")
+	}
+	return nil
+}
+
+func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, additionalTags map[string]string) (bool, error) {
+	annotation, err := scope.MachinePoolAnnotationJSON(TagsLastAppliedAnnotation)
+	if err != nil {
+		return false, err
+	}
+
+	// Check if the instance tags were changed. If they were, update them.
+	// It would be possible here to only send new/updated tags, but for the
+	// moment we send everything, even if only a single tag was created or
+	// upated.
+	changed, created, deleted, newAnnotation := tagsChanged(annotation, additionalTags)
+	if changed {
+		for _, resourceServiceToUpdate := range scope.MachinePoolWithLaunchTemplate.GetResourceServicesToUpdate() {
+			err := resourceServiceToUpdate.ResourceService.UpdateResourceTags(resourceServiceToUpdate.ResourceId, created, deleted)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		// We also need to update the annotation if anything changed.
+		err = scope.UpdateMachinePoolAnnotationJSON(TagsLastAppliedAnnotation, newAnnotation)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return changed, nil
+}
+
+// tagsChanged determines which tags to delete and which to add.
+func tagsChanged(annotation map[string]interface{}, src map[string]string) (bool, map[string]string, map[string]string, map[string]interface{}) {
+	// Bool tracking if we found any changed state.
+	changed := false
+
+	// Tracking for created/updated
+	created := map[string]string{}
+
+	// Tracking for tags that were deleted.
+	deleted := map[string]string{}
+
+	// The new annotation that we need to set if anything is created/updated.
+	newAnnotation := map[string]interface{}{}
+
+	// Loop over annotation, checking if entries are in src.
+	// If an entry is present in annotation but not src, it has been deleted
+	// since last time. We flag this in the deleted map.
+	for t, v := range annotation {
+		_, ok := src[t]
+
+		// Entry isn't in src, it has been deleted.
+		if !ok {
+			// Cast v to a string here. This should be fine, tags are always
+			// strings.
+			deleted[t] = v.(string)
+			changed = true
+		}
+	}
+
+	// Loop over src, checking for entries in annotation.
+	//
+	// If an entry is in src, but not annotation, it has been created since
+	// last time.
+	//
+	// If an entry is in both src and annotation, we compare their values, if
+	// the value in src differs from that in annotation, the tag has been
+	// updated since last time.
+	for t, v := range src {
+		av, ok := annotation[t]
+
+		// Entries in the src always need to be noted in the newAnnotation. We
+		// know they're going to be created or updated.
+		newAnnotation[t] = v
+
+		// Entry isn't in annotation, it's new.
+		if !ok {
+			created[t] = v
+			newAnnotation[t] = v
+			changed = true
+			continue
+		}
+
+		// Entry is in annotation, has the value changed?
+		if v != av {
+			created[t] = v
+			changed = true
+		}
+
+		// Entry existed in both src and annotation, and their values were
+		// equal. Nothing to do.
+	}
+
+	// We made it through the loop, and everything that was in src, was also
+	// in dst. Nothing changed.
+	return changed, created, deleted, newAnnotation
+}
 
 // GetLaunchTemplate returns the existing LaunchTemplate or nothing if it doesn't exist.
 // For now by name until we need the input to be something different.
@@ -137,7 +373,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.LaunchTemplateScope, imageID
 }
 
 // CreateLaunchTemplateVersion will create a launch template.
-func (s *Service) CreateLaunchTemplateVersion(id *string, scope *scope.LaunchTemplateScope, imageID *string, userData []byte) error {
+func (s *Service) CreateLaunchTemplateVersion(id string, scope *scope.LaunchTemplateScope, imageID *string, userData []byte) error {
 	s.scope.V(2).Info("creating new launch template version", "machine-pool", scope.Name())
 
 	launchTemplateData, err := s.createLaunchTemplateData(scope, imageID, userData)
@@ -147,7 +383,7 @@ func (s *Service) CreateLaunchTemplateVersion(id *string, scope *scope.LaunchTem
 
 	input := &ec2.CreateLaunchTemplateVersionInput{
 		LaunchTemplateData: launchTemplateData,
-		LaunchTemplateId:   id,
+		LaunchTemplateId:   &id,
 	}
 
 	_, err = s.EC2Client.CreateLaunchTemplateVersion(input)

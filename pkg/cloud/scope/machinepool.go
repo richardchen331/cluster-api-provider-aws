@@ -19,6 +19,9 @@ package scope
 import (
 	"context"
 	"fmt"
+	asg "sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/autoscaling"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -27,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2/klogr"
 	"k8s.io/utils/pointer"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1beta1"
@@ -49,7 +53,6 @@ type MachinePoolScope struct {
 	MachinePool         *expclusterv1.MachinePool
 	InfraCluster        EC2Scope
 	AWSMachinePool      *expinfrav1.AWSMachinePool
-	LaunchTemplateScope *LaunchTemplateScope
 }
 
 // MachinePoolScopeParams defines a scope defined around a machine and its cluster.
@@ -100,19 +103,6 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
 
-	LaunchTemplateScope, err := NewLaunchTemplateScope(LaunchTemplateScopeParams{
-		Logger: params.Logger,
-
-		AWSLaunchTemplate: &params.AWSMachinePool.Spec.AWSLaunchTemplate,
-		MachinePool:       params.MachinePool,
-		InfraCluster:      params.InfraCluster,
-		name:              params.AWSMachinePool.Name,
-		additionalTags:    params.AWSMachinePool.Spec.AdditionalTags,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting launch template scope")
-	}
-
 	return &MachinePoolScope{
 		Logger:      *params.Logger,
 		client:      params.Client,
@@ -122,7 +112,6 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 		MachinePool:         params.MachinePool,
 		InfraCluster:        params.InfraCluster,
 		AWSMachinePool:      params.AWSMachinePool,
-		LaunchTemplateScope: LaunchTemplateScope,
 	}, nil
 }
 
@@ -235,9 +224,73 @@ func (m *MachinePoolScope) SetASGStatus(v expinfrav1.ASGStatus) {
 	m.AWSMachinePool.Status.ASGStatus = &v
 }
 
-// SetLaunchTemplateIDStatus sets the AWSMachinePool LaunchTemplateID status.
+func (m *MachinePoolScope) GetObjectMeta() *metav1.ObjectMeta {
+	return &m.AWSMachinePool.ObjectMeta
+}
+
+func (m *MachinePoolScope) GetSetter() conditions.Setter {
+	return m.AWSMachinePool
+}
+
+func (m *MachinePoolScope) GetLaunchTemplateIDStatus() string {
+	return m.AWSMachinePool.Status.LaunchTemplateID
+}
+
 func (m *MachinePoolScope) SetLaunchTemplateIDStatus(id string) {
 	m.AWSMachinePool.Status.LaunchTemplateID = id
+}
+
+func (m *MachinePoolScope) GetLaunchTemplateLatestVersionStatus() string {
+	if m.AWSMachinePool.Status.LaunchTemplateVersion != nil {
+		return *m.AWSMachinePool.Status.LaunchTemplateVersion
+	} else {
+		return ""
+	}
+}
+
+func (m *MachinePoolScope) SetLaunchTemplateLatestVersionStatus(version string) {
+	m.AWSMachinePool.Status.LaunchTemplateVersion = &version
+}
+
+func (m *MachinePoolScope) CanUpdateLaunchTemplate() (bool, error) {
+	// If there is a change: before changing the template, check if there exist an ongoing instance refresh,
+	// because only 1 instance refresh can be "InProgress". If template is updated when refresh cannot be started,
+	// that change will not trigger a refresh. Do not start an instance refresh if only userdata changed.
+	asgSvc := asg.NewService(m.InfraCluster)
+	return asgSvc.CanStartASGInstanceRefresh(m)
+}
+
+func (m *MachinePoolScope) RunPostLaunchTemplateUpdateOperation() error {
+	// After creating a new version of launch template, instance refresh is required
+	// to trigger a rolling replacement of all previously launched instances.
+	// If ONLY the userdata changed, previously launched instances continue to use the old launch
+	// template.
+	//
+	// FIXME(dlipovetsky,sedefsavas): If the controller terminates, or the StartASGInstanceRefresh returns an error,
+	// this conditional will not evaluate to true the next reconcile. If any machines use an older
+	// Launch Template version, and the difference between the older and current versions is _more_
+	// than userdata, we should start an Instance Refresh.
+	m.Info("starting instance refresh", "number of instances", m.MachinePool.Spec.Replicas)
+	asgSvc := asg.NewService(m.InfraCluster)
+	return asgSvc.StartASGInstanceRefresh(m)
+}
+
+func (m *MachinePoolScope) GetResourceServicesToUpdate() []ResourceServiceToUpdate {
+	ec2Svc := ec2.NewService(m.InfraCluster)
+	asgSvc := asg.NewService(m.InfraCluster)
+
+	launchTemplateID := m.GetLaunchTemplateIDStatus()
+	asgName := m.Name()
+	return []ResourceServiceToUpdate{
+		{
+			ResourceId: &launchTemplateID,
+			ResourceService: ec2Svc,
+		},
+		{
+			ResourceId: &asgName,
+			ResourceService: asgSvc,
+		},
+	}
 }
 
 // IsEKSManaged checks if the AWSMachinePool is EKS managed.
