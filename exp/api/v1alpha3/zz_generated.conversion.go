@@ -116,11 +116,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*v1beta1.AWSMachinePoolStatus)(nil), (*AWSMachinePoolStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1beta1_AWSMachinePoolStatus_To_v1alpha3_AWSMachinePoolStatus(a.(*v1beta1.AWSMachinePoolStatus), b.(*AWSMachinePoolStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*AWSManagedMachinePool)(nil), (*v1beta1.AWSManagedMachinePool)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha3_AWSManagedMachinePool_To_v1beta1_AWSManagedMachinePool(a.(*AWSManagedMachinePool), b.(*v1beta1.AWSManagedMachinePool), scope)
 	}); err != nil {
@@ -283,6 +278,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddConversionFunc((*apiv1alpha3.Volume)(nil), (*apiv1beta1.Volume)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha3_Volume_To_v1beta1_Volume(a.(*apiv1alpha3.Volume), b.(*apiv1beta1.Volume), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1beta1.AWSMachinePoolStatus)(nil), (*AWSMachinePoolStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1beta1_AWSMachinePoolStatus_To_v1alpha3_AWSMachinePoolStatus(a.(*v1beta1.AWSMachinePoolStatus), b.(*AWSMachinePoolStatus), scope)
 	}); err != nil {
 		return err
 	}
