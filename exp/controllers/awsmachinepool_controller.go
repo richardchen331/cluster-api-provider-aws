@@ -141,13 +141,13 @@ func (r *AWSMachinePoolReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Create the launch template scope
 	launchTemplateScope, err := scope.NewLaunchTemplateScope(scope.LaunchTemplateScopeParams{
-		Client:            r.Client,
-		AWSLaunchTemplate: &awsMachinePool.Spec.AWSLaunchTemplate,
-		MachinePool:       machinePool,
-		InfraCluster:      infraCluster,
+		Client:                        r.Client,
+		AWSLaunchTemplate:             &awsMachinePool.Spec.AWSLaunchTemplate,
+		MachinePool:                   machinePool,
+		InfraCluster:                  infraCluster,
 		MachinePoolWithLaunchTemplate: machinePoolScope,
-		Name:              awsMachinePool.Name,
-		AdditionalTags:    awsMachinePool.Spec.AdditionalTags,
+		Name:                          awsMachinePool.Name,
+		AdditionalTags:                awsMachinePool.Spec.AdditionalTags,
 	})
 	if err != nil {
 		log.Error(err, "failed to create scope")
@@ -292,11 +292,11 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 	asgName := launchTemplateScope.Name()
 	resourceServiceToUpdate := []scope.ResourceServiceToUpdate{
 		{
-			ResourceID: &launchTemplateID,
+			ResourceID:      &launchTemplateID,
 			ResourceService: ec2Svc,
 		},
 		{
-			ResourceID: &asgName,
+			ResourceID:      &asgName,
 			ResourceService: asgsvc,
 		},
 	}

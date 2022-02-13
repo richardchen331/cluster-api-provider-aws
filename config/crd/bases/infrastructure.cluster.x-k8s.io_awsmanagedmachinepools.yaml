@@ -534,6 +534,7 @@ spec:
                   by default.
                 type: object
               amiType:
+                default: AL2_x86_64
                 description: AMIType defines the AMI type
                 enum:
                 - AL2_x86_64
@@ -553,7 +554,10 @@ spec:
                   type: string
                 type: array
               awsLaunchTemplate:
-                description: AWSLaunchTemplate defines the desired state of AWSLaunchTemplate.
+                description: AWSLaunchTemplate specifies the launch template to use
+                  to create the managed node group. If AWSLaunchTemplate is specified,
+                  certain node group configuraions outside of launch template are
+                  prohibited (https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html).
                 properties:
                   additionalSecurityGroups:
                     description: AdditionalSecurityGroups is an array of references

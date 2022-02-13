@@ -126,7 +126,7 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 
 		lts, err = scope.NewLaunchTemplateScope(
 			scope.LaunchTemplateScopeParams{
-				Client: testEnv.Client,
+				Client:            testEnv.Client,
 				AWSLaunchTemplate: &awsMachinePool.Spec.AWSLaunchTemplate,
 				MachinePool: &expclusterv1.MachinePool{
 					Spec: expclusterv1.MachinePoolSpec{
@@ -139,10 +139,10 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 						},
 					},
 				},
-				InfraCluster:   cs,
+				InfraCluster:                  cs,
 				MachinePoolWithLaunchTemplate: ms,
-				Name:              awsMachinePool.Name,
-				AdditionalTags:    awsMachinePool.Spec.AdditionalTags,
+				Name:                          awsMachinePool.Name,
+				AdditionalTags:                awsMachinePool.Spec.AdditionalTags,
 			},
 		)
 		g.Expect(err).To(BeNil())

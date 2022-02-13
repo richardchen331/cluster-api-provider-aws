@@ -172,13 +172,13 @@ func (r *AWSManagedMachinePoolReconciler) Reconcile(ctx context.Context, req ctr
 
 	// Create the launch template scope
 	launchTemplateScope, err := scope.NewLaunchTemplateScope(scope.LaunchTemplateScopeParams{
-		Client:            r.Client,
-		AWSLaunchTemplate: awsPool.Spec.AWSLaunchTemplate,
-		MachinePool:       machinePool,
-		InfraCluster:      managedControlPlaneScope,
+		Client:                        r.Client,
+		AWSLaunchTemplate:             awsPool.Spec.AWSLaunchTemplate,
+		MachinePool:                   machinePool,
+		InfraCluster:                  managedControlPlaneScope,
 		MachinePoolWithLaunchTemplate: machinePoolScope,
-		Name:              fmt.Sprintf("%s-%s", controlPlane.Name, awsPool.Name),
-		AdditionalTags:    awsPool.Spec.AdditionalTags,
+		Name:                          fmt.Sprintf("%s-%s", controlPlane.Name, awsPool.Name),
+		AdditionalTags:                awsPool.Spec.AdditionalTags,
 	})
 	if err != nil {
 		log.Error(err, "failed to create scope")
@@ -232,12 +232,13 @@ func (r *AWSManagedMachinePoolReconciler) reconcileNormal(
 		if err := ec2svc.ReconcileLaunchTemplate(launchTemplateScope, canUpdateLaunchTemplate, runPostLaunchTemplateUpdateOperation); err != nil {
 			r.Recorder.Eventf(machinePoolScope.ManagedMachinePool, corev1.EventTypeWarning, "FailedLaunchTemplateReconcile", "Failed to reconcile launch template: %v", err)
 			machinePoolScope.Error(err, "failed to reconcile launch template")
+			conditions.MarkFalse(machinePoolScope.ManagedMachinePool, expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateReconcileFailedReason, clusterv1.ConditionSeverityError, "")
 			return ctrl.Result{}, err
 		}
 
 		launchTemplateID := launchTemplateScope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus()
 		resourceServiceToUpdate := []scope.ResourceServiceToUpdate{{
-			ResourceID: &launchTemplateID,
+			ResourceID:      &launchTemplateID,
 			ResourceService: ec2svc,
 		}}
 		if err := ec2svc.ReconcileTags(launchTemplateScope, resourceServiceToUpdate); err != nil {
