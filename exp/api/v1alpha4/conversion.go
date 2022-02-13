@@ -28,7 +28,19 @@ import (
 // ConvertTo converts the v1alpha4 AWSMachinePool receiver to a v1beta1 AWSMachinePool.
 func (src *AWSMachinePool) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*infrav1exp.AWSMachinePool)
-	return Convert_v1alpha4_AWSMachinePool_To_v1beta1_AWSMachinePool(src, dst, nil)
+
+	if err := Convert_v1alpha4_AWSMachinePool_To_v1beta1_AWSMachinePool(src, dst, nil); err != nil {
+		return err
+	}
+
+	restored := &infrav1exp.AWSMachinePool{}
+	if ok, err := utilconversion.UnmarshalData(src, restored); err != nil || !ok {
+		return err
+	}
+
+	dst.Status.LaunchTemplateVersion = restored.Status.LaunchTemplateVersion
+
+	return nil
 }
 
 // ConvertFrom converts the v1beta1 AWSMachinePool receiver to v1alpha4 AWSMachinePool.
@@ -95,6 +107,11 @@ func Convert_v1beta1_AWSManagedMachinePoolSpec_To_v1alpha4_AWSManagedMachinePool
 // Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha4_AWSManagedMachinePoolStatus is a conversion function.
 func Convert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha4_AWSManagedMachinePoolStatus(in *infrav1exp.AWSManagedMachinePoolStatus, out *AWSManagedMachinePoolStatus, s apiconversion.Scope) error {
 	return autoConvert_v1beta1_AWSManagedMachinePoolStatus_To_v1alpha4_AWSManagedMachinePoolStatus(in, out, s)
+}
+
+// Convert_v1beta1_AWSMachinePoolStatus_To_v1alpha4_AWSMachinePoolStatus is a conversion function.
+func Convert_v1beta1_AWSMachinePoolStatus_To_v1alpha4_AWSMachinePoolStatus(in *infrav1exp.AWSMachinePoolStatus, out *AWSMachinePoolStatus, s apiconversion.Scope) error {
+	return autoConvert_v1beta1_AWSMachinePoolStatus_To_v1alpha4_AWSMachinePoolStatus(in, out, s)
 }
 
 // ConvertTo converts the v1alpha4 AWSManagedMachinePoolList receiver to a v1beta1 AWSManagedMachinePoolList.
