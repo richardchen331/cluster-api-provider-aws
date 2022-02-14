@@ -47,7 +47,15 @@ func (src *AWSMachinePool) ConvertTo(dstRaw conversion.Hub) error {
 func (r *AWSMachinePool) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*infrav1exp.AWSMachinePool)
 
-	return Convert_v1beta1_AWSMachinePool_To_v1alpha4_AWSMachinePool(src, r, nil)
+	if err := Convert_v1beta1_AWSMachinePool_To_v1alpha4_AWSMachinePool(src, r, nil); err != nil {
+		return err
+	}
+
+	if err := utilconversion.MarshalData(src, r); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ConvertTo converts the v1alpha4 AWSMachinePoolList receiver to a v1beta1 AWSMachinePoolList.

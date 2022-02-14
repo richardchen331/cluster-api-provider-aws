@@ -206,9 +206,6 @@ func (r *AWSMachinePoolReconciler) SetupWithManager(ctx context.Context, mgr ctr
 func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machinePoolScope *scope.MachinePoolScope, launchTemplateScope *scope.LaunchTemplateScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope) (ctrl.Result, error) {
 	clusterScope.Info("Reconciling AWSMachinePool")
 
-	ec2Svc := r.getEC2Service(ec2Scope)
-	asgsvc := r.getASGService(clusterScope)
-
 	// If the AWSMachine is in an error state, return early.
 	if machinePoolScope.HasFailed() {
 		machinePoolScope.Info("Error state detected, skipping reconciliation")
@@ -238,6 +235,9 @@ func (r *AWSMachinePoolReconciler) reconcileNormal(ctx context.Context, machineP
 		conditions.MarkFalse(machinePoolScope.AWSMachinePool, expinfrav1.ASGReadyCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
 	}
+
+	ec2Svc := r.getEC2Service(ec2Scope)
+	asgsvc := r.getASGService(clusterScope)
 
 	canUpdateLaunchTemplate := func() (bool, error) {
 		// If there is a change: before changing the template, check if there exist an ongoing instance refresh,
