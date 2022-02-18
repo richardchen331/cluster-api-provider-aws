@@ -107,8 +107,8 @@ spec:
   additionalTags:
     Owner: eng-compute-lifecycle-team@databricks.com
   awsLaunchTemplate:
-    ami:
-      id: ami-0eb873de16468e55e
+#    ami:
+#      id: ami-0eb873de16468e55e
     instanceType: i3.metal
     rootVolume:
       deviceName: /dev/xvda

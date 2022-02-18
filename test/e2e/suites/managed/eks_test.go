@@ -44,6 +44,7 @@ var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 		cniAddonVersion     = "v1.8.0-eksbuild.1"
 		corednsAddonName    = "coredns"
 		corednsAddonVersion = "v1.8.3-eksbuild.1"
+		kubernetesVersion   = "v1.21"
 	)
 
 	shared.ConditionalIt(runGeneralTests, "should create a cluster and add nodes", func() {
@@ -72,6 +73,7 @@ var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 				ControlPlaneMachineCount: 1, //NOTE: this cannot be zero as clusterctl returns an error
 				WorkerMachineCount:       0,
 				CNIManifestPath:          e2eCtx.E2EConfig.GetVariable(shared.CNIPath),
+				KubernetesVersion:        kubernetesVersion,
 			}
 		})
 
@@ -126,6 +128,26 @@ var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 				ClusterName:           clusterName,
 				IncludeScaling:        true,
 				Cleanup:               true,
+				Flavor:                EKSManagedPoolOnlyFlavor,
+				UsesLaunchTemplate:    false,
+				KubernetesVersion:     kubernetesVersion,
+			}
+		})
+
+		ginkgo.By("should create a managed node pool with launch template and scale")
+		ManagedMachinePoolSpec(ctx, func() ManagedMachinePoolSpecInput {
+			return ManagedMachinePoolSpecInput{
+				E2EConfig:             e2eCtx.E2EConfig,
+				ConfigClusterFn:       defaultConfigCluster,
+				BootstrapClusterProxy: e2eCtx.Environment.BootstrapClusterProxy,
+				AWSSession:            e2eCtx.BootstrapUserAWSSession,
+				Namespace:             namespace,
+				ClusterName:           clusterName,
+				IncludeScaling:        true,
+				Cleanup:               true,
+				Flavor:                EKSManagedPoolWithLaunchTemplateOnlyFlavor,
+				UsesLaunchTemplate:    true,
+				KubernetesVersion:     kubernetesVersion,
 			}
 		})
 
