@@ -36,15 +36,15 @@ import (
 // General EKS e2e test.
 var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 	var (
-		namespace           *corev1.Namespace
-		ctx                 context.Context
-		specName            = "eks-nodes"
-		clusterName         string
-		cniAddonName        = "vpc-cni"
-		cniAddonVersion     = "v1.8.0-eksbuild.1"
-		corednsAddonName    = "coredns"
-		corednsAddonVersion = "v1.8.3-eksbuild.1"
-		kubernetesVersion   = "v1.21"
+		namespace            *corev1.Namespace
+		ctx                  context.Context
+		specName             = "eks-nodes"
+		clusterName          string
+		cniAddonName         = "vpc-cni"
+		cniAddonVersion      = "v1.8.0-eksbuild.1"
+		corednsAddonName     = "coredns"
+		corednsAddonVersion  = "v1.8.3-eksbuild.1"
+		eksKubernetesVersion = "v1.21"
 	)
 
 	shared.ConditionalIt(runGeneralTests, "should create a cluster and add nodes", func() {
@@ -73,7 +73,6 @@ var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 				ControlPlaneMachineCount: 1, //NOTE: this cannot be zero as clusterctl returns an error
 				WorkerMachineCount:       0,
 				CNIManifestPath:          e2eCtx.E2EConfig.GetVariable(shared.CNIPath),
-				KubernetesVersion:        kubernetesVersion,
 			}
 		})
 
@@ -130,7 +129,7 @@ var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 				Cleanup:               true,
 				Flavor:                EKSManagedPoolOnlyFlavor,
 				UsesLaunchTemplate:    false,
-				KubernetesVersion:     kubernetesVersion,
+				EKSKubernetesVersion:  eksKubernetesVersion,
 			}
 		})
 
@@ -147,7 +146,7 @@ var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 				Cleanup:               true,
 				Flavor:                EKSManagedPoolWithLaunchTemplateOnlyFlavor,
 				UsesLaunchTemplate:    true,
-				KubernetesVersion:     kubernetesVersion,
+				EKSKubernetesVersion:  eksKubernetesVersion,
 			}
 		})
 

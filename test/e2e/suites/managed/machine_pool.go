@@ -48,7 +48,7 @@ type ManagedMachinePoolSpecInput struct {
 	Cleanup               bool
 	Flavor                string
 	UsesLaunchTemplate    bool
-	KubernetesVersion     string
+	EKSKubernetesVersion  string
 }
 
 // ManagedMachinePoolSpec implements a test for creating a managed machine pool.
@@ -74,9 +74,6 @@ func ManagedMachinePoolSpec(ctx context.Context, inputGetter func() ManagedMachi
 	configCluster := input.ConfigClusterFn(input.ClusterName, input.Namespace.Name)
 	configCluster.Flavor = input.Flavor
 	configCluster.WorkerMachineCount = pointer.Int64Ptr(1)
-	if input.KubernetesVersion != "" {
-		configCluster.KubernetesVersion = input.KubernetesVersion
-	}
 	workloadClusterTemplate := shared.GetTemplate(ctx, configCluster)
 	if input.UsesLaunchTemplate {
 		userDataTemplate := `#!/bin/bash
@@ -86,6 +83,7 @@ func ManagedMachinePoolSpec(ctx context.Context, inputGetter func() ManagedMachi
 		userData := fmt.Sprintf(userDataTemplate, input.ClusterName)
 		userDataEncoded := base64.StdEncoding.EncodeToString([]byte(userData))
 		workloadClusterTemplate = []byte(strings.ReplaceAll(string(workloadClusterTemplate), "${USER_DATA}", userDataEncoded))
+		workloadClusterTemplate = []byte(strings.ReplaceAll(string(workloadClusterTemplate), "${EKS_KUBERNETES_VERSION}", input.EKSKubernetesVersion))
 	}
 	shared.Byf("Applying the %s cluster template yaml to the cluster", configCluster.Flavor)
 	err := input.BootstrapClusterProxy.Apply(ctx, workloadClusterTemplate)
