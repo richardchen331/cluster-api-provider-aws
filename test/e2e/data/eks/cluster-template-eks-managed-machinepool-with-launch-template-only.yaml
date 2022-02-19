@@ -7,7 +7,7 @@ spec:
   replicas: ${WORKER_MACHINE_COUNT}
   template:
     spec:
-      version: "${EKS_KUBERNETES_VERSION}",
+      version: "EKS_KUBERNETES_VERSION",
       clusterName: "${CLUSTER_NAME}"
       bootstrap:
         dataSecretName: "${CLUSTER_NAME}-pool-0-userdata"
@@ -32,5 +32,5 @@ kind: Secret
 metadata:
   name: "${CLUSTER_NAME}-pool-0-userdata"
 data:
-  value: "${USER_DATA}"
+  value: "USER_DATA"
 type: Opaque
