@@ -21,6 +21,7 @@ kind: AWSManagedMachinePool
 metadata:
   name: "${CLUSTER_NAME}-pool-0"
 spec:
+  amiType: CUSTOM
   awsLaunchTemplate:
     ami: {}
   scaling:
