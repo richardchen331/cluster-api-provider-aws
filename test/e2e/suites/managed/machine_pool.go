@@ -80,7 +80,8 @@ func ManagedMachinePoolSpec(ctx context.Context, inputGetter func() ManagedMachi
 /etc/eks/bootstrap.sh %s \
   --container-runtime containerd
 `
-		userData := fmt.Sprintf(userDataTemplate, input.ClusterName)
+		eksClusterName := getEKSClusterName(input.Namespace.Name, input.ClusterName)
+		userData := fmt.Sprintf(userDataTemplate, eksClusterName)
 		userDataEncoded := base64.StdEncoding.EncodeToString([]byte(userData))
 		workloadClusterTemplate = []byte(strings.ReplaceAll(string(workloadClusterTemplate), "USER_DATA", userDataEncoded))
 		workloadClusterTemplate = []byte(strings.ReplaceAll(string(workloadClusterTemplate), "EKS_KUBERNETES_VERSION", input.EKSKubernetesVersion))

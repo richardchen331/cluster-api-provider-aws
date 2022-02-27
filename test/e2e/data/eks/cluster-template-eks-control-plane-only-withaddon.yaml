@@ -23,7 +23,6 @@ metadata:
 spec:
   region: "${AWS_REGION}"
   sshKeyName: "${AWS_SSH_KEY_NAME}"
-  eksClusterName: "${CLUSTER_NAME}"
   version: "${KUBERNETES_VERSION}"
   addons:
     - name: "vpc-cni"
