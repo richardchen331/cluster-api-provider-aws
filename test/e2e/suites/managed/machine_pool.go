@@ -86,6 +86,7 @@ func ManagedMachinePoolSpec(ctx context.Context, inputGetter func() ManagedMachi
 		workloadClusterTemplate = []byte(strings.ReplaceAll(string(workloadClusterTemplate), "USER_DATA", userDataEncoded))
 		workloadClusterTemplate = []byte(strings.ReplaceAll(string(workloadClusterTemplate), "EKS_KUBERNETES_VERSION", input.EKSKubernetesVersion))
 	}
+	shared.Byf(string(workloadClusterTemplate))
 	shared.Byf("Applying the %s cluster template yaml to the cluster", configCluster.Flavor)
 	err := input.BootstrapClusterProxy.Apply(ctx, workloadClusterTemplate)
 	Expect(err).ShouldNot(HaveOccurred())
