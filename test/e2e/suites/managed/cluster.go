@@ -85,7 +85,7 @@ func ManagedClusterSpec(ctx context.Context, inputGetter func() ManagedClusterSp
 
 	shared.Byf("Checking EKS cluster is active")
 	eksClusterName := getEKSClusterName(input.Namespace.Name, input.ClusterName)
-	verifyClusterActiveAndOwned(eksClusterName, input.ClusterName, input.AWSSession)
+	verifyClusterActiveAndOwned(eksClusterName, input.AWSSession)
 
 	if input.CluserSpecificRoles {
 		ginkgo.By("Checking that the cluster specific IAM role exists")

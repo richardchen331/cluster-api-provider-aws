@@ -60,7 +60,7 @@ func getControlPlaneName(clusterName string) string {
 	return fmt.Sprintf("%s-control-plane", clusterName)
 }
 
-func verifyClusterActiveAndOwned(eksClusterName, clusterName string, sess client.ConfigProvider) {
+func verifyClusterActiveAndOwned(eksClusterName string, sess client.ConfigProvider) {
 	cluster, err := getEKSCluster(eksClusterName, sess)
 	Expect(err).NotTo(HaveOccurred())
 
