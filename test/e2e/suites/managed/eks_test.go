@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 	var (
 		namespace            *corev1.Namespace
 		ctx                  context.Context
-		specName             = "eks-nodes"
+		specName             = "cluster"
 		clusterName          string
 		cniAddonName         = "vpc-cni"
 		cniAddonVersion      = "v1.8.0-eksbuild.1"
@@ -56,9 +56,10 @@ var _ = ginkgo.Describe("[managed] [general] EKS cluster tests", func() {
 		ctx = context.TODO()
 		namespace = shared.SetupSpecNamespace(ctx, specName, e2eCtx)
 		clusterName = fmt.Sprintf("%s-%s", specName, util.RandomString(6))
+		eksClusterName := getEKSClusterName(namespace.Name, clusterName)
 
 		ginkgo.By("default iam role should exist")
-		verifyRoleExistsAndOwned(ekscontrolplanev1.DefaultEKSControlPlaneRole, clusterName, false, e2eCtx.BootstrapUserAWSSession)
+		verifyRoleExistsAndOwned(ekscontrolplanev1.DefaultEKSControlPlaneRole, eksClusterName, false, e2eCtx.BootstrapUserAWSSession)
 
 		ginkgo.By("should create an EKS control plane")
 		ManagedClusterSpec(ctx, func() ManagedClusterSpecInput {

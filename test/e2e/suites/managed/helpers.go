@@ -64,7 +64,7 @@ func verifyClusterActiveAndOwned(eksClusterName, clusterName string, sess client
 	cluster, err := getEKSCluster(eksClusterName, sess)
 	Expect(err).NotTo(HaveOccurred())
 
-	tagName := infrav1.ClusterTagKey(clusterName)
+	tagName := infrav1.ClusterTagKey(eksClusterName)
 	tagValue, ok := cluster.Tags[tagName]
 	Expect(ok).To(BeTrue(), "expecting the cluster owned tag to exist")
 	Expect(*tagValue).To(BeEquivalentTo(string(infrav1.ResourceLifecycleOwned)))
@@ -111,7 +111,7 @@ func verifyConfigMapExists(ctx context.Context, name, namespace string, k8sclien
 	Expect(err).ShouldNot(HaveOccurred())
 }
 
-func verifyRoleExistsAndOwned(roleName string, clusterName string, checkOwned bool, sess client.ConfigProvider) {
+func verifyRoleExistsAndOwned(roleName string, eksClusterName string, checkOwned bool, sess client.ConfigProvider) {
 	iamClient := iam.New(sess)
 	input := &iam.GetRoleInput{
 		RoleName: aws.String(roleName),
@@ -122,7 +122,7 @@ func verifyRoleExistsAndOwned(roleName string, clusterName string, checkOwned bo
 
 	if checkOwned {
 		found := false
-		expectedTagName := infrav1.ClusterAWSCloudProviderTagKey(clusterName)
+		expectedTagName := infrav1.ClusterAWSCloudProviderTagKey(eksClusterName)
 		for _, tag := range output.Role.Tags {
 			if *tag.Key == expectedTagName && *tag.Value == string(infrav1.ResourceLifecycleOwned) {
 				found = true
