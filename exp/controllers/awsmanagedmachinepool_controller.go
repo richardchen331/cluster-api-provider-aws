@@ -360,6 +360,6 @@ func managedControlPlaneToManagedMachinePoolMapFunc(c client.Client, gvk schema.
 	}
 }
 
-func (r *AWSManagedMachinePoolReconciler) getEC2Service(scope scope.EC2Scope) services.EC2MachineInterface {
+func (r *AWSManagedMachinePoolReconciler) getEC2Service(scope scope.EC2Scope) services.EC2Interface {
 	return ec2.NewService(scope)
 }

@@ -51,13 +51,13 @@ func setupNewManagedControlPlaneScope(cl client.Client) (*scope.ManagedControlPl
 	})
 }
 
-func setupMachinePoolScope(cl client.Client, ec2Scope scope.EC2Scope) (*scope.MachinePoolScope, error) {
-	return scope.NewMachinePoolScope(scope.MachinePoolScopeParams{
-		Client:         cl,
-		InfraCluster:   ec2Scope,
-		Cluster:        newCluster(),
-		MachinePool:    newMachinePool(),
-		AWSMachinePool: newAWSMachinePool(),
+func setupLaunchTemplateScope(cl client.Client, ec2Scope scope.EC2Scope) (*scope.LaunchTemplateScope, error) {
+	return scope.NewLaunchTemplateScope(scope.LaunchTemplateScopeParams{
+		Client:            cl,
+		InfraCluster:      ec2Scope,
+		MachinePool:       newMachinePool(),
+		AWSLaunchTemplate: newAWSLaunchTemplate(),
+		Name:              "aws-mp-name",
 	})
 }
 
@@ -106,6 +106,17 @@ func newAWSMachinePool() *expinfrav1.AWSMachinePool {
 		Status: expinfrav1.AWSMachinePoolStatus{
 			LaunchTemplateID: "launch-template-id",
 		},
+	}
+}
+
+func newAWSLaunchTemplate() *expinfrav1.AWSLaunchTemplate {
+	return &expinfrav1.AWSLaunchTemplate{
+		Name:                     "aws-launch-template",
+		IamInstanceProfile:       "instance-profile",
+		AMI:                      infrav1.AMIReference{},
+		InstanceType:             "t3.large",
+		SSHKeyName:               aws.String("default"),
+		AdditionalSecurityGroups: []infrav1.AWSResourceReference{{ID: aws.String("1")}},
 	}
 }
 
