@@ -1,7 +1,7 @@
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
-  name: "${CLUSTER_NAME}-pool-0"
+  name: "${CLUSTER_NAME}-pool-lt-0"
 spec:
   clusterName: "${CLUSTER_NAME}"
   replicas: ${WORKER_MACHINE_COUNT}
@@ -10,16 +10,16 @@ spec:
       version: "EKS_KUBERNETES_VERSION"
       clusterName: "${CLUSTER_NAME}"
       bootstrap:
-        dataSecretName: "${CLUSTER_NAME}-pool-0-userdata"
+        dataSecretName: "${CLUSTER_NAME}-pool-lt-0-userdata"
       infrastructureRef:
-        name: "${CLUSTER_NAME}-pool-0"
+        name: "${CLUSTER_NAME}-pool-lt-0"
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AWSManagedMachinePool
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSManagedMachinePool
 metadata:
-  name: "${CLUSTER_NAME}-pool-0"
+  name: "${CLUSTER_NAME}-pool-lt-0"
 spec:
   amiType: CUSTOM
   awsLaunchTemplate:
@@ -31,7 +31,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: "${CLUSTER_NAME}-pool-0-userdata"
+  name: "${CLUSTER_NAME}-pool-lt-0-userdata"
 data:
   value: "USER_DATA"
 type: Opaque
