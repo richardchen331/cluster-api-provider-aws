@@ -56,6 +56,10 @@ func getEKSNodegroupName(namespace, clusterName string) string {
 	return fmt.Sprintf("%s_%s-pool-0", namespace, clusterName)
 }
 
+func getEKSNodegroupWithLaunchTemplateName(namespace, clusterName string) string {
+	return fmt.Sprintf("%s_%s-pool-lt-0", namespace, clusterName)
+}
+
 func getControlPlaneName(clusterName string) string {
 	return fmt.Sprintf("%s-control-plane", clusterName)
 }
