@@ -16093,8 +16093,8 @@ AWSMachineTemplateResource
 (<em>Appears on:</em><a href="#infrastructure.cluster.x-k8s.io/v1beta1.AWSMachineSpec">AWSMachineSpec</a>)
 </p>
 <p>
-<p>AWSResourceReference is a reference to a specific AWS resource by ID, ARN, or filters.
-Only one of ID, ARN or Filters may be specified. Specifying more than one will result in
+<p>AWSResourceReference is a reference to a specific AWS resource by ID or filters.
+Only one of ID or Filters may be specified. Specifying more than one will result in
 a validation error.</p>
 </p>
 <table>
@@ -16126,7 +16126,8 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>ARN of resource</p>
+<p>ARN of resource.
+Deprecated: This field has no function and is going to be removed in the next release.</p>
 </td>
 </tr>
 <tr>
@@ -18194,7 +18195,7 @@ FargateProfileStatus
 <h3 id="infrastructure.cluster.x-k8s.io/v1beta1.AWSLaunchTemplate">AWSLaunchTemplate
 </h3>
 <p>
-(<em>Appears on:</em><a href="#infrastructure.cluster.x-k8s.io/v1beta1.AWSMachinePoolSpec">AWSMachinePoolSpec</a>)
+(<em>Appears on:</em><a href="#infrastructure.cluster.x-k8s.io/v1beta1.AWSMachinePoolSpec">AWSMachinePoolSpec</a>, <a href="#infrastructure.cluster.x-k8s.io/v1beta1.AWSManagedMachinePoolSpec">AWSManagedMachinePoolSpec</a>)
 </p>
 <p>
 <p>AWSLaunchTemplate defines the desired state of AWSLaunchTemplate.</p>
@@ -18853,6 +18854,18 @@ string
 </tr>
 <tr>
 <td>
+<code>launchTemplateVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The version of the launch template</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>failureReason</code><br/>
 <em>
 <a href="https://pkg.go.dev/sigs.k8s.io/cluster-api@v1.0.0/errors#MachineStatusError">
@@ -19187,6 +19200,22 @@ UpdateConfig
 to the nodegroup.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>awsLaunchTemplate</code><br/>
+<em>
+<a href="#infrastructure.cluster.x-k8s.io/v1beta1.AWSLaunchTemplate">
+AWSLaunchTemplate
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AWSLaunchTemplate specifies the launch template to use to create the managed node group.
+If AWSLaunchTemplate is specified, certain node group configuraions outside of launch template
+are prohibited (<a href="https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html">https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html</a>).</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -19450,6 +19479,22 @@ UpdateConfig
 to the nodegroup.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>awsLaunchTemplate</code><br/>
+<em>
+<a href="#infrastructure.cluster.x-k8s.io/v1beta1.AWSLaunchTemplate">
+AWSLaunchTemplate
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AWSLaunchTemplate specifies the launch template to use to create the managed node group.
+If AWSLaunchTemplate is specified, certain node group configuraions outside of launch template
+are prohibited (<a href="https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html">https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html</a>).</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="infrastructure.cluster.x-k8s.io/v1beta1.AWSManagedMachinePoolStatus">AWSManagedMachinePoolStatus
@@ -19490,6 +19535,30 @@ int32
 <td>
 <em>(Optional)</em>
 <p>Replicas is the most recently observed number of replicas.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>launchTemplateID</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The ID of the launch template</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>launchTemplateVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The version of the launch template</p>
 </td>
 </tr>
 <tr>

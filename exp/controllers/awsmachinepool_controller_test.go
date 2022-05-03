@@ -54,7 +54,6 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 		reconciler     AWSMachinePoolReconciler
 		cs             *scope.ClusterScope
 		ms             *scope.MachinePoolScope
-		lts            *scope.LaunchTemplateScope
 		mockCtrl       *gomock.Controller
 		ec2Svc         *mock_services.MockEC2Interface
 		asgSvc         *mock_services.MockASGInterface
@@ -124,29 +123,6 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 		)
 		g.Expect(err).To(BeNil())
 
-		lts, err = scope.NewLaunchTemplateScope(
-			scope.LaunchTemplateScopeParams{
-				Client:            testEnv.Client,
-				AWSLaunchTemplate: &awsMachinePool.Spec.AWSLaunchTemplate,
-				MachinePool: &expclusterv1.MachinePool{
-					Spec: expclusterv1.MachinePoolSpec{
-						Template: clusterv1.MachineTemplateSpec{
-							Spec: clusterv1.MachineSpec{
-								Bootstrap: clusterv1.Bootstrap{
-									DataSecretName: pointer.StringPtr("bootstrap-data"),
-								},
-							},
-						},
-					},
-				},
-				InfraCluster:                  cs,
-				MachinePoolWithLaunchTemplate: ms,
-				Name:                          awsMachinePool.Name,
-				AdditionalTags:                awsMachinePool.Spec.AdditionalTags,
-			},
-		)
-		g.Expect(err).To(BeNil())
-
 		cs, err = setupCluster("test-cluster")
 		g.Expect(err).To(BeNil())
 
@@ -203,7 +179,7 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 				buf := new(bytes.Buffer)
 				klog.SetOutput(buf)
 
-				_, _ = reconciler.reconcileNormal(context.Background(), ms, lts, cs, cs)
+				_, _ = reconciler.reconcileNormal(context.Background(), ms, cs, cs)
 				g.Expect(buf).To(ContainSubstring("Error state detected, skipping reconciliation"))
 			})
 			t.Run("should add our finalizer to the machinepool", func(t *testing.T) {
@@ -214,7 +190,7 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 
 				ec2Svc.EXPECT().ReconcileLaunchTemplate(gomock.Any(), gomock.Any(), gomock.Any())
 
-				_, _ = reconciler.reconcileNormal(context.Background(), ms, lts, cs, cs)
+				_, _ = reconciler.reconcileNormal(context.Background(), ms, cs, cs)
 
 				g.Expect(ms.AWSMachinePool.Finalizers).To(ContainElement(expinfrav1.MachinePoolFinalizer))
 			})
@@ -229,7 +205,7 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 				buf := new(bytes.Buffer)
 				klog.SetOutput(buf)
 
-				_, err := reconciler.reconcileNormal(context.Background(), ms, lts, cs, cs)
+				_, err := reconciler.reconcileNormal(context.Background(), ms, cs, cs)
 				g.Expect(err).To(BeNil())
 				g.Expect(buf.String()).To(ContainSubstring("Cluster infrastructure is not ready yet"))
 				expectConditions(g, ms.AWSMachinePool, []conditionAssertion{{expinfrav1.ASGReadyCondition, corev1.ConditionFalse, clusterv1.ConditionSeverityInfo, infrav1.WaitingForClusterInfrastructureReason}})
@@ -244,7 +220,7 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 				buf := new(bytes.Buffer)
 				klog.SetOutput(buf)
 
-				_, err := reconciler.reconcileNormal(context.Background(), ms, lts, cs, cs)
+				_, err := reconciler.reconcileNormal(context.Background(), ms, cs, cs)
 
 				g.Expect(err).To(BeNil())
 				g.Expect(buf.String()).To(ContainSubstring("Bootstrap data secret reference is not yet available"))
@@ -269,7 +245,7 @@ func TestAWSMachinePoolReconciler(t *testing.T) {
 
 				expectedErr := errors.New("no connection available ")
 				ec2Svc.EXPECT().ReconcileLaunchTemplate(gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedErr)
-				_, err := reconciler.reconcileNormal(context.Background(), ms, lts, cs, cs)
+				_, err := reconciler.reconcileNormal(context.Background(), ms, cs, cs)
 				g.Expect(errors.Cause(err)).To(MatchError(expectedErr))
 			})
 		})

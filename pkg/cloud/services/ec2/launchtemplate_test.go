@@ -486,7 +486,7 @@ func TestService_LaunchTemplateNeedsUpdate(t *testing.T) {
 					AWSCluster: ac,
 				},
 			}
-			launchTemplateScope := &scope.LaunchTemplateScope{
+			machinePoolScope := &scope.MachinePoolScope{
 				InfraCluster: &scope.ClusterScope{
 					AWSCluster: ac,
 				},
@@ -894,7 +894,7 @@ func TestCreateLaunchTemplate(t *testing.T) {
 			g.Expect(err).NotTo(HaveOccurred())
 			mockEC2Client := mock_ec2iface.NewMockEC2API(mockCtrl)
 
-			lts, err := setupLaunchTemplateScope(client, cs)
+			ms, err := setupMachinePoolScope(client, cs)
 			g.Expect(err).NotTo(HaveOccurred())
 
 			ms.AWSMachinePool.Spec.AWSLaunchTemplate.AdditionalSecurityGroups = tc.awsResourceReference
@@ -906,7 +906,7 @@ func TestCreateLaunchTemplate(t *testing.T) {
 				tc.expect(g, mockEC2Client.EXPECT())
 			}
 
-			launchTemplate, err := s.CreateLaunchTemplate(lts, aws.String("imageID"), userData)
+			launchTemplate, err := s.CreateLaunchTemplate(ms, aws.String("imageID"), userData)
 			tc.check(g, launchTemplate, err)
 		})
 	}
@@ -925,12 +925,12 @@ func Test_LaunchTemplateDataCreation(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 		cs.AWSCluster.Status.Network.SecurityGroups[infrav1.SecurityGroupBastion] = infrav1.SecurityGroup{ID: "1"}
 
-		lts, err := setupLaunchTemplateScope(client, cs)
+		ms, err := setupMachinePoolScope(client, cs)
 		g.Expect(err).NotTo(HaveOccurred())
 
 		s := NewService(cs)
 
-		launchTemplate, err := s.CreateLaunchTemplate(lts, aws.String("imageID"), nil)
+		launchTemplate, err := s.CreateLaunchTemplate(ms, aws.String("imageID"), nil)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(launchTemplate).Should(BeEmpty())
 	})
@@ -1053,10 +1053,10 @@ func TestCreateLaunchTemplateVersion(t *testing.T) {
 			cs, err := setupClusterScope(client)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			lts, err := setupLaunchTemplateScope(client, cs)
+			ms, err := setupMachinePoolScope(client, cs)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			mpScope.AWSMachinePool.Spec.AWSLaunchTemplate.AdditionalSecurityGroups = tc.awsResourceReference
+			ms.AWSMachinePool.Spec.AWSLaunchTemplate.AdditionalSecurityGroups = tc.awsResourceReference
 
 			mockEC2Client := mock_ec2iface.NewMockEC2API(mockCtrl)
 			s := NewService(cs)
@@ -1066,10 +1066,10 @@ func TestCreateLaunchTemplateVersion(t *testing.T) {
 				tc.expect(mockEC2Client.EXPECT())
 			}
 			if tc.wantErr {
-				g.Expect(s.CreateLaunchTemplateVersion("launch-template-id", lts, aws.String("imageID"), userData)).To(HaveOccurred())
+				g.Expect(s.CreateLaunchTemplateVersion("launch-template-id", ms, aws.String("imageID"), userData)).To(HaveOccurred())
 				return
 			}
-			g.Expect(s.CreateLaunchTemplateVersion("launch-template-id", lts, aws.String("imageID"), userData)).NotTo(HaveOccurred())
+			g.Expect(s.CreateLaunchTemplateVersion("launch-template-id", ms, aws.String("imageID"), userData)).NotTo(HaveOccurred())
 		})
 	}
 }
@@ -1114,11 +1114,11 @@ func TestBuildLaunchTemplateTagSpecificationRequest(t *testing.T) {
 			cs, err := setupClusterScope(client)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			lts, err := setupLaunchTemplateScope(client, cs)
+			ms, err := setupMachinePoolScope(client, cs)
 			g.Expect(err).NotTo(HaveOccurred())
 
 			s := NewService(cs)
-			tc.check(g, s.buildLaunchTemplateTagSpecificationRequest(lts))
+			tc.check(g, s.buildLaunchTemplateTagSpecificationRequest(ms))
 		})
 	}
 }
@@ -1259,11 +1259,11 @@ func TestDiscoverLaunchTemplateAMI(t *testing.T) {
 			cs, err := setupClusterScope(client)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			lts, err := setupLaunchTemplateScope(client, cs)
+			ms, err := setupMachinePoolScope(client, cs)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			lts.AWSLaunchTemplate = &tc.awsLaunchTemplate
-			lts.MachinePool.Spec.Template = tc.machineTemplate
+			ms.AWSMachinePool.Spec.AWSLaunchTemplate = tc.awsLaunchTemplate
+			ms.MachinePool.Spec.Template = tc.machineTemplate
 
 			if tc.expect != nil {
 				tc.expect(ec2Mock.EXPECT())
@@ -1272,7 +1272,7 @@ func TestDiscoverLaunchTemplateAMI(t *testing.T) {
 			s := NewService(cs)
 			s.EC2Client = ec2Mock
 
-			id, err := s.DiscoverLaunchTemplateAMI(lts)
+			id, err := s.DiscoverLaunchTemplateAMI(ms)
 			tc.check(g, id, err)
 		})
 	}
@@ -1318,7 +1318,7 @@ func TestDiscoverLaunchTemplateAMI_ForEKS(t *testing.T) {
 			mcps, err := setupNewManagedControlPlaneScope(client)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			lts, err := setupLaunchTemplateScope(client, mcps)
+			ms, err := setupMachinePoolScope(client, mcps)
 			g.Expect(err).NotTo(HaveOccurred())
 
 			if tc.expect != nil {
@@ -1328,7 +1328,7 @@ func TestDiscoverLaunchTemplateAMI_ForEKS(t *testing.T) {
 			s := NewService(mcps)
 			s.SSMClient = ssmMock
 
-			id, err := s.DiscoverLaunchTemplateAMI(lts)
+			id, err := s.DiscoverLaunchTemplateAMI(ms)
 			tc.check(g, id, err)
 		})
 	}

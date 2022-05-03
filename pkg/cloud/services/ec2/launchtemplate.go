@@ -18,10 +18,8 @@ package ec2
 
 import (
 	"encoding/base64"
-	"fmt"
-	corev1 "k8s.io/api/core/v1"
 	"encoding/json"
-	"reflect"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -473,7 +471,7 @@ func (s *Service) createLaunchTemplateData(scope scope.LaunchTemplateScope, imag
 	}
 
 	// add additional security groups as well
-	securityGroupIDs, err := s.GetAdditionalSecurityGroupsIDs(scope.AWSMachinePool.Spec.AWSLaunchTemplate.AdditionalSecurityGroups)
+	securityGroupIDs, err := s.GetAdditionalSecurityGroupsIDs(scope.GetLaunchTemplate().AdditionalSecurityGroups)
 	if err != nil {
 		return nil, err
 	}

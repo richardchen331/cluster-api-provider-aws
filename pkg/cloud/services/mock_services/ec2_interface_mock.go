@@ -68,7 +68,7 @@ func (mr *MockEC2InterfaceMockRecorder) CreateInstance(arg0, arg1, arg2 interfac
 }
 
 // CreateLaunchTemplate mocks base method.
-func (m *MockEC2Interface) CreateLaunchTemplate(arg0 *scope.LaunchTemplateScope, arg1 *string, arg2 []byte) (string, error) {
+func (m *MockEC2Interface) CreateLaunchTemplate(arg0 scope.LaunchTemplateScope, arg1 *string, arg2 []byte) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateLaunchTemplate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
@@ -83,7 +83,7 @@ func (mr *MockEC2InterfaceMockRecorder) CreateLaunchTemplate(arg0, arg1, arg2 in
 }
 
 // CreateLaunchTemplateVersion mocks base method.
-func (m *MockEC2Interface) CreateLaunchTemplateVersion(arg0 string, arg1 *scope.LaunchTemplateScope, arg2 *string, arg3 []byte) error {
+func (m *MockEC2Interface) CreateLaunchTemplateVersion(arg0 string, arg1 scope.LaunchTemplateScope, arg2 *string, arg3 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateLaunchTemplateVersion", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -139,7 +139,7 @@ func (mr *MockEC2InterfaceMockRecorder) DetachSecurityGroupsFromNetworkInterface
 }
 
 // DiscoverLaunchTemplateAMI mocks base method.
-func (m *MockEC2Interface) DiscoverLaunchTemplateAMI(arg0 *scope.LaunchTemplateScope) (*string, error) {
+func (m *MockEC2Interface) DiscoverLaunchTemplateAMI(arg0 scope.LaunchTemplateScope) (*string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DiscoverLaunchTemplateAMI", arg0)
 	ret0, _ := ret[0].(*string)
@@ -275,7 +275,7 @@ func (mr *MockEC2InterfaceMockRecorder) InstanceIfExists(arg0 interface{}) *gomo
 }
 
 // LaunchTemplateNeedsUpdate mocks base method.
-func (m *MockEC2Interface) LaunchTemplateNeedsUpdate(arg0 *scope.LaunchTemplateScope, arg1, arg2 *v1beta10.AWSLaunchTemplate) (bool, error) {
+func (m *MockEC2Interface) LaunchTemplateNeedsUpdate(arg0 scope.LaunchTemplateScope, arg1, arg2 *v1beta10.AWSLaunchTemplate) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LaunchTemplateNeedsUpdate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(bool)
@@ -318,7 +318,7 @@ func (mr *MockEC2InterfaceMockRecorder) ReconcileBastion() *gomock.Call {
 }
 
 // ReconcileLaunchTemplate mocks base method.
-func (m *MockEC2Interface) ReconcileLaunchTemplate(arg0 *scope.LaunchTemplateScope, arg1 func() (bool, error), arg2 func() error) error {
+func (m *MockEC2Interface) ReconcileLaunchTemplate(arg0 scope.LaunchTemplateScope, arg1 func() (bool, error), arg2 func() error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReconcileLaunchTemplate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -332,7 +332,7 @@ func (mr *MockEC2InterfaceMockRecorder) ReconcileLaunchTemplate(arg0, arg1, arg2
 }
 
 // ReconcileTags mocks base method.
-func (m *MockEC2Interface) ReconcileTags(arg0 *scope.LaunchTemplateScope, arg1 []scope.ResourceServiceToUpdate) error {
+func (m *MockEC2Interface) ReconcileTags(arg0 scope.LaunchTemplateScope, arg1 []scope.ResourceServiceToUpdate) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReconcileTags", arg0, arg1)
 	ret0, _ := ret[0].(error)

@@ -19,13 +19,13 @@ package scope
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2/klogr"
 	"k8s.io/utils/pointer"
@@ -144,7 +144,7 @@ func (m *MachinePoolScope) getBootstrapData() ([]byte, string, error) {
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{Namespace: m.Namespace(), Name: *m.MachinePool.Spec.Template.Spec.Bootstrap.DataSecretName}
 
-	if err := m.client.Get(context.TODO(), key, secret); err != nil {
+	if err := m.Client.Get(context.TODO(), key, secret); err != nil {
 		return nil, "", errors.Wrapf(err, "failed to retrieve bootstrap data secret for AWSMachine %s/%s", m.Namespace(), m.Name())
 	}
 
