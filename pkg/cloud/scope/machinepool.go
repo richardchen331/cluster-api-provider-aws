@@ -19,6 +19,7 @@ package scope
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -44,7 +45,7 @@ import (
 // MachinePoolScope defines a scope defined around a machine and its cluster.
 type MachinePoolScope struct {
 	logr.Logger
-	client      client.Client
+	client.Client
 	patchHelper *patch.Helper
 
 	Cluster        *clusterv1.Cluster
@@ -55,7 +56,7 @@ type MachinePoolScope struct {
 
 // MachinePoolScopeParams defines a scope defined around a machine and its cluster.
 type MachinePoolScopeParams struct {
-	Client client.Client
+	client.Client
 	Logger *logr.Logger
 
 	Cluster        *clusterv1.Cluster
@@ -103,7 +104,7 @@ func NewMachinePoolScope(params MachinePoolScopeParams) (*MachinePoolScope, erro
 
 	return &MachinePoolScope{
 		Logger:      *params.Logger,
-		client:      params.Client,
+		Client:      params.Client,
 		patchHelper: helper,
 
 		Cluster:        params.Cluster,
@@ -230,6 +231,10 @@ func (m *MachinePoolScope) GetSetter() conditions.Setter {
 	return m.AWSMachinePool
 }
 
+func (m *MachinePoolScope) GetEC2Scope() EC2Scope {
+	return m.InfraCluster
+}
+
 func (m *MachinePoolScope) GetLaunchTemplateIDStatus() string {
 	return m.AWSMachinePool.Status.LaunchTemplateID
 }
@@ -316,7 +321,7 @@ func (m *MachinePoolScope) getNodeStatusByProviderID(ctx context.Context, provid
 		nodeStatusMap[id] = &NodeStatus{}
 	}
 
-	workloadClient, err := remote.NewClusterClient(ctx, "", m.client, util.ObjectKey(m.Cluster))
+	workloadClient, err := remote.NewClusterClient(ctx, "", m.Client, util.ObjectKey(m.Cluster))
 	if err != nil {
 		return nil, err
 	}
@@ -351,4 +356,20 @@ func nodeIsReady(node corev1.Node) bool {
 		}
 	}
 	return false
+}
+
+func (m *MachinePoolScope) GetLaunchTemplate() *expinfrav1.AWSLaunchTemplate {
+	return &m.AWSMachinePool.Spec.AWSLaunchTemplate
+}
+
+func (m *MachinePoolScope) GetMachinePool() *expclusterv1.MachinePool {
+	return m.MachinePool
+}
+
+func (m *MachinePoolScope) LaunchTemplateName() string {
+	return m.Name()
+}
+
+func (m *MachinePoolScope) GetRuntimeObject() runtime.Object {
+	return m.AWSMachinePool
 }

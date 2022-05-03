@@ -19,6 +19,7 @@ package scope
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/go-logr/logr"
@@ -112,7 +113,7 @@ func NewManagedMachinePoolScope(params ManagedMachinePoolScopeParams) (*ManagedM
 // ManagedMachinePoolScope defines the basic context for an actuator to operate upon.
 type ManagedMachinePoolScope struct {
 	logr.Logger
-	Client      client.Client
+	client.Client
 	patchHelper *patch.Helper
 
 	Cluster            *clusterv1.Cluster
@@ -165,11 +166,14 @@ func (s *ManagedMachinePoolScope) IdentityRef() *infrav1.AWSIdentityReference {
 // AdditionalTags returns AdditionalTags from the scope's ManagedMachinePool
 // The returned value will never be nil.
 func (s *ManagedMachinePoolScope) AdditionalTags() infrav1.Tags {
-	if s.ManagedMachinePool.Spec.AdditionalTags == nil {
-		s.ManagedMachinePool.Spec.AdditionalTags = infrav1.Tags{}
-	}
+	tags := make(infrav1.Tags)
 
-	return s.ManagedMachinePool.Spec.AdditionalTags.DeepCopy()
+	// Start with the cluster-wide tags...
+	tags.Merge(s.EC2Scope.AdditionalTags())
+	// ... and merge in the Machine's
+	tags.Merge(s.ManagedMachinePool.Spec.AdditionalTags)
+
+	return tags
 }
 
 // RoleName returns the node group role name.
@@ -325,6 +329,14 @@ func (s *ManagedMachinePoolScope) GetSetter() conditions.Setter {
 	return s.ManagedMachinePool
 }
 
+func (s *ManagedMachinePoolScope) GetEC2Scope() EC2Scope {
+	return s.EC2Scope
+}
+
+func (s *ManagedMachinePoolScope) IsEKSManaged() bool {
+	return true
+}
+
 func (s *ManagedMachinePoolScope) GetLaunchTemplateIDStatus() string {
 	if s.ManagedMachinePool.Status.LaunchTemplateID != nil {
 		return *s.ManagedMachinePool.Status.LaunchTemplateID
@@ -347,4 +359,20 @@ func (s *ManagedMachinePoolScope) GetLaunchTemplateLatestVersionStatus() string 
 
 func (s *ManagedMachinePoolScope) SetLaunchTemplateLatestVersionStatus(version string) {
 	s.ManagedMachinePool.Status.LaunchTemplateVersion = &version
+}
+
+func (s *ManagedMachinePoolScope) GetLaunchTemplate() *expinfrav1.AWSLaunchTemplate {
+	return s.ManagedMachinePool.Spec.AWSLaunchTemplate
+}
+
+func (s *ManagedMachinePoolScope) GetMachinePool() *expclusterv1.MachinePool {
+	return s.MachinePool
+}
+
+func (s *ManagedMachinePoolScope) LaunchTemplateName() string {
+	return fmt.Sprintf("%s-%s", s.ControlPlane.Name, s.ManagedMachinePool.Name)
+}
+
+func (s *ManagedMachinePoolScope) GetRuntimeObject() runtime.Object {
+	return s.ManagedMachinePool
 }

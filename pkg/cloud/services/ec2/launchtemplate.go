@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
+	"encoding/json"
 	"reflect"
 	"sort"
 	"strconv"
@@ -53,28 +54,28 @@ const (
 )
 
 func (s *Service) ReconcileLaunchTemplate(
-	scope *scope.LaunchTemplateScope,
+	scope scope.LaunchTemplateScope,
 	canUpdateLaunchTemplate func() (bool, error),
 	runPostLaunchTemplateUpdateOperation func() error,
 ) error {
 	bootstrapData, err := scope.GetRawBootstrapData()
 	if err != nil {
-		record.Eventf(scope.MachinePool, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
+		record.Eventf(scope.GetMachinePool(), corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
 	}
 	bootstrapDataHash := userdata.ComputeHash(bootstrapData)
 
-	ec2svc := NewService(scope.InfraCluster)
+	ec2svc := NewService(scope.GetEC2Scope())
 
 	scope.Info("checking for existing launch template")
-	launchTemplate, launchTemplateUserDataHash, err := ec2svc.GetLaunchTemplate(scope.Name())
+	launchTemplate, launchTemplateUserDataHash, err := ec2svc.GetLaunchTemplate(scope.LaunchTemplateName())
 	if err != nil {
-		conditions.MarkUnknown(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
+		conditions.MarkUnknown(scope.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
 		return err
 	}
 
 	imageID, err := ec2svc.DiscoverLaunchTemplateAMI(scope)
 	if err != nil {
-		conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		conditions.MarkFalse(scope.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return err
 	}
 
@@ -82,37 +83,37 @@ func (s *Service) ReconcileLaunchTemplate(
 		scope.Info("no existing launch template found, creating")
 		launchTemplateID, err := ec2svc.CreateLaunchTemplate(scope, imageID, bootstrapData)
 		if err != nil {
-			conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
+			conditions.MarkFalse(scope.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateCreateFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return err
 		}
 
-		scope.MachinePoolWithLaunchTemplate.SetLaunchTemplateIDStatus(launchTemplateID)
-		return scope.MachinePoolWithLaunchTemplate.PatchObject()
+		scope.SetLaunchTemplateIDStatus(launchTemplateID)
+		return scope.PatchObject()
 	}
 
 	// LaunchTemplateID is set during LaunchTemplate creation, but for a scenario such as `clusterctl move`, status fields become blank.
 	// If launchTemplate already exists but LaunchTemplateID field in the status is empty, get the ID and update the status.
-	if scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus() == "" {
-		launchTemplateID, err := ec2svc.GetLaunchTemplateID(scope.Name())
+	if scope.GetLaunchTemplateIDStatus() == "" {
+		launchTemplateID, err := ec2svc.GetLaunchTemplateID(scope.LaunchTemplateName())
 		if err != nil {
-			conditions.MarkUnknown(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
+			conditions.MarkUnknown(scope.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
 			return err
 		}
-		scope.MachinePoolWithLaunchTemplate.SetLaunchTemplateIDStatus(launchTemplateID)
-		return scope.MachinePoolWithLaunchTemplate.PatchObject()
+		scope.SetLaunchTemplateIDStatus(launchTemplateID)
+		return scope.PatchObject()
 	}
 
-	if scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateLatestVersionStatus() == "" {
-		launchTemplateVersion, err := ec2svc.GetLaunchTemplateLatestVersion(scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus())
+	if scope.GetLaunchTemplateLatestVersionStatus() == "" {
+		launchTemplateVersion, err := ec2svc.GetLaunchTemplateLatestVersion(scope.GetLaunchTemplateIDStatus())
 		if err != nil {
-			conditions.MarkUnknown(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
+			conditions.MarkUnknown(scope.GetSetter(), expinfrav1.LaunchTemplateReadyCondition, expinfrav1.LaunchTemplateNotFoundReason, err.Error())
 			return err
 		}
-		scope.MachinePoolWithLaunchTemplate.SetLaunchTemplateLatestVersionStatus(launchTemplateVersion)
-		return scope.MachinePoolWithLaunchTemplate.PatchObject()
+		scope.SetLaunchTemplateLatestVersionStatus(launchTemplateVersion)
+		return scope.PatchObject()
 	}
 
-	annotation, err := scope.MachinePoolAnnotationJSON(TagsLastAppliedAnnotation)
+	annotation, err := MachinePoolAnnotationJSON(scope, TagsLastAppliedAnnotation)
 	if err != nil {
 		return err
 	}
@@ -120,7 +121,7 @@ func (s *Service) ReconcileLaunchTemplate(
 	// Check if the instance tags were changed. If they were, create a new LaunchTemplate.
 	tagsChanged, _, _, _ := tagsChanged(annotation, scope.AdditionalTags()) // nolint:dogsled
 
-	needsUpdate, err := ec2svc.LaunchTemplateNeedsUpdate(scope, scope.AWSLaunchTemplate, launchTemplate)
+	needsUpdate, err := ec2svc.LaunchTemplateNeedsUpdate(scope, scope.GetLaunchTemplate(), launchTemplate)
 	if err != nil {
 		return err
 	}
@@ -131,7 +132,7 @@ func (s *Service) ReconcileLaunchTemplate(
 			return err
 		}
 		if !canUpdate {
-			conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.PreLaunchTemplateUpdateCheckCondition, expinfrav1.PreLaunchTemplateUpdateCheckFailedReason, clusterv1.ConditionSeverityWarning, "")
+			conditions.MarkFalse(scope.GetSetter(), expinfrav1.PreLaunchTemplateUpdateCheckCondition, expinfrav1.PreLaunchTemplateUpdateCheckFailedReason, clusterv1.ConditionSeverityWarning, "")
 			return errors.New("Cannot update the launch template, prerequisite not met")
 		}
 	}
@@ -139,50 +140,47 @@ func (s *Service) ReconcileLaunchTemplate(
 	// Create a new launch template version if there's a difference in configuration, tags,
 	// userdata, OR we've discovered a new AMI ID.
 	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID || launchTemplateUserDataHash != bootstrapDataHash {
-		scope.Info("creating new version for launch template", "existing", launchTemplate, "incoming", scope.AWSLaunchTemplate)
+		scope.Info("creating new version for launch template", "existing", launchTemplate, "incoming", scope.GetLaunchTemplate())
 		// There is a limit to the number of Launch Template Versions.
 		// We ensure that the number of versions does not grow without bound by following a simple rule: Before we create a new version, we delete one old version, if there is at least one old version that is not in use.
-		if err := ec2svc.PruneLaunchTemplateVersions(scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus()); err != nil {
+		if err := ec2svc.PruneLaunchTemplateVersions(scope.GetLaunchTemplateIDStatus()); err != nil {
 			return err
 		}
-		if err := ec2svc.CreateLaunchTemplateVersion(scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus(), scope, imageID, bootstrapData); err != nil {
+		if err := ec2svc.CreateLaunchTemplateVersion(scope.GetLaunchTemplateIDStatus(), scope, imageID, bootstrapData); err != nil {
 			return err
 		}
-		version, err := ec2svc.GetLaunchTemplateLatestVersion(scope.MachinePoolWithLaunchTemplate.GetLaunchTemplateIDStatus())
+		version, err := ec2svc.GetLaunchTemplateLatestVersion(scope.GetLaunchTemplateIDStatus())
 		if err != nil {
 			return err
 		}
 
-		scope.MachinePoolWithLaunchTemplate.SetLaunchTemplateLatestVersionStatus(version)
-		return scope.MachinePoolWithLaunchTemplate.PatchObject()
+		scope.SetLaunchTemplateLatestVersionStatus(version)
+		return scope.PatchObject()
 	}
 
 	if needsUpdate || tagsChanged || *imageID != *launchTemplate.AMI.ID {
 		if err := runPostLaunchTemplateUpdateOperation(); err != nil {
-			conditions.MarkFalse(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.PostLaunchTemplateUpdateOperationCondition, expinfrav1.PostLaunchTemplateUpdateOperationFailedReason, clusterv1.ConditionSeverityError, err.Error())
+			conditions.MarkFalse(scope.GetSetter(), expinfrav1.PostLaunchTemplateUpdateOperationCondition, expinfrav1.PostLaunchTemplateUpdateOperationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return err
 		}
-		conditions.MarkTrue(scope.MachinePoolWithLaunchTemplate.GetSetter(), expinfrav1.PostLaunchTemplateUpdateOperationCondition)
+		conditions.MarkTrue(scope.GetSetter(), expinfrav1.PostLaunchTemplateUpdateOperationCondition)
 	}
 
 	return nil
 }
 
-func (s *Service) ReconcileTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []scope.ResourceServiceToUpdate) error {
+func (s *Service) ReconcileTags(scope scope.LaunchTemplateScope, resourceServicesToUpdate []scope.ResourceServiceToUpdate) error {
 	additionalTags := scope.AdditionalTags()
 
-	tagsChanged, err := s.ensureTags(scope, resourceServicesToUpdate, additionalTags)
+	_, err := s.ensureTags(scope, resourceServicesToUpdate, additionalTags)
 	if err != nil {
 		return err
 	}
-	if tagsChanged {
-		record.Eventf(scope.MachinePool, corev1.EventTypeNormal, "UpdatedTags", "updated tags on resources")
-	}
 	return nil
 }
 
-func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, resourceServicesToUpdate []scope.ResourceServiceToUpdate, additionalTags map[string]string) (bool, error) {
-	annotation, err := scope.MachinePoolAnnotationJSON(TagsLastAppliedAnnotation)
+func (s *Service) ensureTags(scope scope.LaunchTemplateScope, resourceServicesToUpdate []scope.ResourceServiceToUpdate, additionalTags map[string]string) (bool, error) {
+	annotation, err := MachinePoolAnnotationJSON(scope, TagsLastAppliedAnnotation)
 	if err != nil {
 		return false, err
 	}
@@ -201,13 +199,58 @@ func (s *Service) ensureTags(scope *scope.LaunchTemplateScope, resourceServicesT
 		}
 
 		// We also need to update the annotation if anything changed.
-		err = scope.UpdateMachinePoolAnnotationJSON(TagsLastAppliedAnnotation, newAnnotation)
+		err = UpdateMachinePoolAnnotationJSON(scope, TagsLastAppliedAnnotation, newAnnotation)
 		if err != nil {
 			return false, err
 		}
 	}
 
 	return changed, nil
+}
+
+func MachinePoolAnnotationJSON(lts scope.LaunchTemplateScope, annotation string) (map[string]interface{}, error) {
+	out := map[string]interface{}{}
+
+	jsonAnnotation := machinePoolAnnotation(lts, annotation)
+	if len(jsonAnnotation) == 0 {
+		return out, nil
+	}
+
+	err := json.Unmarshal([]byte(jsonAnnotation), &out)
+	if err != nil {
+		return out, err
+	}
+
+	return out, nil
+}
+
+func machinePoolAnnotation(lts scope.LaunchTemplateScope, annotation string) string {
+	return lts.GetObjectMeta().GetAnnotations()[annotation]
+}
+
+func UpdateMachinePoolAnnotationJSON(lts scope.LaunchTemplateScope, annotation string, content map[string]interface{}) error {
+	b, err := json.Marshal(content)
+	if err != nil {
+		return err
+	}
+
+	updateMachinePoolAnnotation(lts, annotation, string(b))
+	return nil
+}
+
+func updateMachinePoolAnnotation(lts scope.LaunchTemplateScope, annotation, content string) {
+	// Get the annotations
+	annotations := lts.GetObjectMeta().GetAnnotations()
+
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// Set our annotation to the given content.
+	annotations[annotation] = content
+
+	// Update the machine object with these annotations
+	lts.GetObjectMeta().SetAnnotations(annotations)
 }
 
 // tagsChanged determines which tags to delete and which to add.
@@ -334,7 +377,7 @@ func (s *Service) GetLaunchTemplateID(launchTemplateName string) (string, error)
 }
 
 // CreateLaunchTemplate generates a launch template to be used with the autoscaling group.
-func (s *Service) CreateLaunchTemplate(scope *scope.LaunchTemplateScope, imageID *string, userData []byte) (string, error) {
+func (s *Service) CreateLaunchTemplate(scope scope.LaunchTemplateScope, imageID *string, userData []byte) (string, error) {
 	s.scope.Info("Create a new launch template")
 
 	launchTemplateData, err := s.createLaunchTemplateData(scope, imageID, userData)
@@ -344,7 +387,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.LaunchTemplateScope, imageID
 
 	input := &ec2.CreateLaunchTemplateInput{
 		LaunchTemplateData: launchTemplateData,
-		LaunchTemplateName: aws.String(scope.Name()),
+		LaunchTemplateName: aws.String(scope.LaunchTemplateName()),
 	}
 
 	additionalTags := scope.AdditionalTags()
@@ -354,7 +397,7 @@ func (s *Service) CreateLaunchTemplate(scope *scope.LaunchTemplateScope, imageID
 	tags := infrav1.Build(infrav1.BuildParams{
 		ClusterName: s.scope.KubernetesClusterName(),
 		Lifecycle:   infrav1.ResourceLifecycleOwned,
-		Name:        aws.String(scope.Name()),
+		Name:        aws.String(scope.LaunchTemplateName()),
 		Role:        aws.String("node"),
 		Additional:  additionalTags,
 	})
@@ -378,8 +421,8 @@ func (s *Service) CreateLaunchTemplate(scope *scope.LaunchTemplateScope, imageID
 }
 
 // CreateLaunchTemplateVersion will create a launch template.
-func (s *Service) CreateLaunchTemplateVersion(id string, scope *scope.LaunchTemplateScope, imageID *string, userData []byte) error {
-	s.scope.V(2).Info("creating new launch template version", "machine-pool", scope.Name())
+func (s *Service) CreateLaunchTemplateVersion(id string, scope scope.LaunchTemplateScope, imageID *string, userData []byte) error {
+	s.scope.V(2).Info("creating new launch template version", "machine-pool", scope.LaunchTemplateName())
 
 	launchTemplateData, err := s.createLaunchTemplateData(scope, imageID, userData)
 	if err != nil {
@@ -399,8 +442,8 @@ func (s *Service) CreateLaunchTemplateVersion(id string, scope *scope.LaunchTemp
 	return nil
 }
 
-func (s *Service) createLaunchTemplateData(scope *scope.LaunchTemplateScope, imageID *string, userData []byte) (*ec2.RequestLaunchTemplateData, error) {
-	lt := scope.AWSLaunchTemplate
+func (s *Service) createLaunchTemplateData(scope scope.LaunchTemplateScope, imageID *string, userData []byte) (*ec2.RequestLaunchTemplateData, error) {
+	lt := scope.GetLaunchTemplate()
 
 	// An explicit empty string for SSHKeyName means do not specify a key in the ASG launch
 	var sshKeyNamePtr *string
@@ -628,7 +671,7 @@ func (s *Service) SDKToLaunchTemplate(d *ec2.LaunchTemplateVersion) (*expinfrav1
 //
 // FIXME(dlipovetsky): This check should account for changed userdata, but does not yet do so.
 // Although userdata is stored in an EC2 Launch Template, it is not a field of AWSLaunchTemplate.
-func (s *Service) LaunchTemplateNeedsUpdate(scope *scope.LaunchTemplateScope, incoming *expinfrav1.AWSLaunchTemplate, existing *expinfrav1.AWSLaunchTemplate) (bool, error) {
+func (s *Service) LaunchTemplateNeedsUpdate(scope scope.LaunchTemplateScope, incoming *expinfrav1.AWSLaunchTemplate, existing *expinfrav1.AWSLaunchTemplate) (bool, error) {
 	if incoming.IamInstanceProfile != existing.IamInstanceProfile {
 		return true, nil
 	}
@@ -663,14 +706,14 @@ func (s *Service) LaunchTemplateNeedsUpdate(scope *scope.LaunchTemplateScope, in
 }
 
 // DiscoverLaunchTemplateAMI will discover the AMI launch template.
-func (s *Service) DiscoverLaunchTemplateAMI(scope *scope.LaunchTemplateScope) (*string, error) {
-	lt := scope.AWSLaunchTemplate
+func (s *Service) DiscoverLaunchTemplateAMI(scope scope.LaunchTemplateScope) (*string, error) {
+	lt := scope.GetLaunchTemplate()
 
 	if lt.AMI.ID != nil {
 		return lt.AMI.ID, nil
 	}
 
-	if scope.MachinePool.Spec.Template.Spec.Version == nil {
+	if scope.GetMachinePool().Spec.Template.Spec.Version == nil {
 		err := errors.New("Either AWSMachinePool's spec.awslaunchtemplate.ami.id or MachinePool's spec.template.spec.version must be defined")
 		s.scope.Error(err, "")
 		return nil, err
@@ -681,26 +724,26 @@ func (s *Service) DiscoverLaunchTemplateAMI(scope *scope.LaunchTemplateScope) (*
 
 	imageLookupFormat := lt.ImageLookupFormat
 	if imageLookupFormat == "" {
-		imageLookupFormat = scope.InfraCluster.ImageLookupFormat()
+		imageLookupFormat = scope.GetEC2Scope().ImageLookupFormat()
 	}
 
 	imageLookupOrg := lt.ImageLookupOrg
 	if imageLookupOrg == "" {
-		imageLookupOrg = scope.InfraCluster.ImageLookupOrg()
+		imageLookupOrg = scope.GetEC2Scope().ImageLookupOrg()
 	}
 
 	imageLookupBaseOS := lt.ImageLookupBaseOS
 	if imageLookupBaseOS == "" {
-		imageLookupBaseOS = scope.InfraCluster.ImageLookupBaseOS()
+		imageLookupBaseOS = scope.GetEC2Scope().ImageLookupBaseOS()
 	}
 
 	if scope.IsEKSManaged() && imageLookupFormat == "" && imageLookupOrg == "" && imageLookupBaseOS == "" {
-		lookupAMI, err = s.eksAMILookup(*scope.MachinePool.Spec.Template.Spec.Version, scope.AWSLaunchTemplate.AMI.EKSOptimizedLookupType)
+		lookupAMI, err = s.eksAMILookup(*scope.GetMachinePool().Spec.Template.Spec.Version, scope.GetLaunchTemplate().AMI.EKSOptimizedLookupType)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		lookupAMI, err = s.defaultAMIIDLookup(imageLookupFormat, imageLookupOrg, imageLookupBaseOS, *scope.MachinePool.Spec.Template.Spec.Version)
+		lookupAMI, err = s.defaultAMIIDLookup(imageLookupFormat, imageLookupOrg, imageLookupBaseOS, *scope.GetMachinePool().Spec.Template.Spec.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -728,7 +771,7 @@ func (s *Service) GetAdditionalSecurityGroupsIDs(securityGroups []infrav1.AWSRes
 	return additionalSecurityGroupsIDs, nil
 }
 
-func (s *Service) buildLaunchTemplateTagSpecificationRequest(scope *scope.LaunchTemplateScope) []*ec2.LaunchTemplateTagSpecificationRequest {
+func (s *Service) buildLaunchTemplateTagSpecificationRequest(scope scope.LaunchTemplateScope) []*ec2.LaunchTemplateTagSpecificationRequest {
 	tagSpecifications := make([]*ec2.LaunchTemplateTagSpecificationRequest, 0)
 	additionalTags := scope.AdditionalTags()
 	// Set the cloud provider tag
@@ -737,7 +780,7 @@ func (s *Service) buildLaunchTemplateTagSpecificationRequest(scope *scope.Launch
 	tags := infrav1.Build(infrav1.BuildParams{
 		ClusterName: s.scope.KubernetesClusterName(),
 		Lifecycle:   infrav1.ResourceLifecycleOwned,
-		Name:        aws.String(scope.Name()),
+		Name:        aws.String(scope.LaunchTemplateName()),
 		Role:        aws.String("node"),
 		Additional:  additionalTags,
 	})
